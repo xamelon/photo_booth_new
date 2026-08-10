@@ -1,0 +1,70 @@
+<.admin_shell current_admin={@current_admin} current_path={@current_path}>
+  <div class="page-header">
+    <h1>Sandbox</h1>
+    <form method="post" action={~p"/admin/bot/sandbox/reset"}>
+      <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+      <button class="secondary-button">Reset</button>
+    </form>
+  </div>
+
+  <div class="sandbox-layout">
+    <aside class="panel sandbox-side">
+      <h2>Session</h2>
+      <%= if @state.session do %>
+        <div class="kv"><span>Node</span><code>{@state.session.current_node_id}</code></div>
+        <div class="kv"><span>Context</span><code>{json(@state.session.context)}</code></div>
+      <% else %>
+        <p class="hint">No active session. Send <code>/start</code>.</p>
+      <% end %>
+      <div class="kv"><span>Inbox</span><strong>{length(@state.inbox)}</strong></div>
+      <div class="kv"><span>Outbox</span><strong>{length(@state.outbox)}</strong></div>
+    </aside>
+
+    <section class="panel sandbox-chat-panel">
+      <div class="sandbox-thread">
+        <%= if @state.transcript == [] do %>
+          <div class="empty">
+            <strong>Диалог пуст</strong>
+            <span>Напиши <code>/start</code>, чтобы запустить demo flow.</span>
+          </div>
+        <% end %>
+
+        <div
+          :for={message <- @state.transcript}
+          class={["chat-message", "chat-message-#{message.author}"]}
+        >
+          <div class="chat-bubble">
+            <span>{if message.author == "user", do: "Вы", else: "Бот"} · {message.status}</span>
+            <p>{message.text}</p>
+            <div
+              :if={message[:active_buttons] && message[:buttons] && message.buttons != []}
+              class="chat-buttons"
+            >
+              <form
+                :for={button <- message.buttons}
+                method="post"
+                action={~p"/admin/bot/sandbox/send"}
+              >
+                <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+                <input type="hidden" name="payload" value={button["payload"] || button["label"]} />
+                <input type="hidden" name="button_label" value={button["label"]} />
+                <button class="secondary-button">{button["label"]}</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <form method="post" action={~p"/admin/bot/sandbox/send"} class="sandbox-composer">
+        <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+        <input
+          name="text"
+          placeholder="Message from user, e.g. /start"
+          autocomplete="off"
+          autofocus
+        />
+        <button>Send</button>
+      </form>
+    </section>
+  </div>
+</.admin_shell>

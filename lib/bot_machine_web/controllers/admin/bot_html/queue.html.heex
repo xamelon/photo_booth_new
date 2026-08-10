@@ -1,0 +1,23 @@
+<.admin_shell current_admin={@current_admin} current_path={@current_path}>
+  <h1>{@title}</h1>
+
+  <section class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Status</th><th>Recipient</th><th>Attempts</th><th>Error</th><th>Payload</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr :for={row <- @rows}>
+          <td><.badge status={row.status} /></td>
+          <td>{row.channel}:{row.external_id}</td>
+          <td>{row.attempts}</td>
+          <td class="error-cell">{row.last_error}</td>
+          <td><code>{json(row.payload)}</code></td>
+        </tr>
+      </tbody>
+    </table>
+    <p :if={@rows == []} class="empty">Nothing here yet.</p>
+  </section>
+</.admin_shell>

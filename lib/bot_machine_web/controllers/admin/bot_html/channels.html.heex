@@ -1,0 +1,103 @@
+<.admin_shell current_admin={@current_admin} current_path={@current_path}>
+  <div class="page-header">
+    <div>
+      <h1>Channels</h1>
+      <p class="page-subtitle">
+        Подключения к платформам. Core не знает про VK, это adapter layer.
+      </p>
+    </div>
+  </div>
+
+  <section class="channel-card channel-card-vk">
+    <div class="channel-card-header">
+      <div>
+        <div class="channel-kicker">Platform</div>
+        <h2>VK</h2>
+        <p>Callback API, входящие <code>message_new</code>, отправка сообщений и фото.</p>
+      </div>
+      <span class={["status-pill", (@vk && @vk["provision_status"]) || "none"]}>
+        {(@vk && @vk["provision_status"]) || "not provisioned"}
+      </span>
+    </div>
+
+    <div class="channel-facts">
+      <div>
+        <span>Webhook URL</span>
+        <code>{@vk_callback_url}</code>
+      </div>
+      <div>
+        <span>Group ID</span>
+        <strong>{(@vk && @vk["group_id"]) || "—"}</strong>
+      </div>
+      <div>
+        <span>Token</span>
+        <strong>{if @vk && @vk["group_access_token"], do: "configured", else: "missing"}</strong>
+      </div>
+      <div>
+        <span>Callback server</span>
+        <strong>{(@vk && @vk["callback_server_id"]) || "—"}</strong>
+      </div>
+    </div>
+
+    <p :if={@vk && @vk["last_provision_error"] not in [nil, ""]} class="channel-error">
+      {@vk["last_provision_error"]}
+    </p>
+
+    <div class="channel-grid">
+      <form method="post" action={~p"/admin/bot/channels/vk"} class="settings-panel">
+        <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+        <h3>Credentials</h3>
+        <p>Token не показывается после сохранения. Оставь поле пустым, чтобы не менять его.</p>
+
+        <label>
+          <span>Group ID</span>
+          <input name="vk[group_id]" value={@vk && @vk["group_id"]} placeholder="123456" />
+        </label>
+
+        <label>
+          <span>Confirmation code</span>
+          <input
+            name="vk[confirmation_code]"
+            value={@vk && @vk["confirmation_code"]}
+            placeholder="получится автоматически при provisioning"
+          />
+        </label>
+
+        <label>
+          <span>Group access token</span>
+          <input
+            name="vk[group_access_token]"
+            type="password"
+            value=""
+            placeholder={if @vk && @vk["group_access_token"], do: "configured", else: "vk1..."}
+            autocomplete="off"
+          />
+        </label>
+
+        <button>Save credentials</button>
+      </form>
+
+      <form
+        method="post"
+        action={~p"/admin/bot/channels/vk/provision"}
+        class="settings-panel provision-panel"
+      >
+        <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+        <h3>Provision callback</h3>
+        <p>
+          Создаст или обновит VK callback server, дождётся confirmation и включит <code>message_new</code>.
+        </p>
+
+        <ol class="provision-steps">
+          <li>Проверить публичный HTTPS URL</li>
+          <li>Получить confirmation code</li>
+          <li>Создать callback server</li>
+          <li>Включить message_new</li>
+        </ol>
+
+        <button class="secondary-button">Provision VK callback</button>
+        <p class="hint">Для локалки нужен tunnel и <code>PUBLIC_BASE_URL=https://...</code></p>
+      </form>
+    </div>
+  </section>
+</.admin_shell>

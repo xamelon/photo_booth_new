@@ -1,0 +1,19 @@
+<.admin_shell current_admin={@current_admin} current_path={@current_path} wide={true}>
+  <div class="page-header">
+    <div>
+      <a class="back-link" href={~p"/admin/bot/flows"}>← Flows</a>
+      <h1>{@version.bot_flow.name} v{@version.version}</h1>
+    </div>
+    <div class="page-actions">
+      <a class="secondary-button" href={~p"/admin/bot/flows/#{@version.id}/edit"}>Edit</a>
+      <.badge status={@version.status} />
+    </div>
+  </div>
+
+  <section class="flow-viewer-panel">
+    <div id="flow-viewer" class="flow-viewer"></div>
+    <script type="application/json" id="flow-viewer-data">
+      <%= raw(@flow_json) %>
+    </script>
+  </section>
+</.admin_shell>

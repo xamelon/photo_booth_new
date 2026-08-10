@@ -1,0 +1,29 @@
+<.admin_shell current_admin={@current_admin} current_path={@current_path}>
+  <h1>Flows</h1>
+
+  <section class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Slug</th><th>Name</th><th>Status</th><th>Versions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr :for={flow <- @flows}>
+          <td><code>{flow.slug}</code></td>
+          <td>{flow.name}</td>
+          <td><.badge status={flow.status} /></td>
+          <td>
+            <span :for={version <- flow.versions} class="version-links">
+              <a class="inline-link" href={~p"/admin/bot/flows/#{version.id}/view"}>
+                v{version.version} {version.status}
+              </a>
+              <a class="inline-link" href={~p"/admin/bot/flows/#{version.id}/edit"}>edit</a>
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p :if={@flows == []} class="empty">No flows yet.</p>
+  </section>
+</.admin_shell>

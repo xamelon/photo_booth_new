@@ -1,0 +1,21 @@
+<.admin_shell current_admin={@current_admin} current_path={@current_path}>
+  <h1>Events</h1>
+
+  <section class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th><th>Node</th><th>At</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr :for={event <- @events}>
+          <td>{event.event_type}</td>
+          <td><code>{event.node_id || "flow"}</code></td>
+          <td class="muted">{event.inserted_at}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p :if={@events == []} class="empty">No events yet.</p>
+  </section>
+</.admin_shell>

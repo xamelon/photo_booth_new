@@ -1,0 +1,21 @@
+<.admin_shell current_admin={@current_admin} current_path={@current_path}>
+  <h1>Bot Machine</h1>
+
+  <div class="stats">
+    <.stat label="Bot users" value={@counts.bot_users} />
+    <.stat label="Sessions" value={@counts.sessions} />
+    <.stat label="Inbox" value={@counts.inbox} />
+    <.stat label="Outbox" value={@counts.outbox} />
+    <.stat label="Events" value={@counts.events} />
+    <.stat label="Flows" value={@counts.flows} />
+    <.stat label="Triggers" value={@counts.triggers} />
+  </div>
+
+  <section class="panel">
+    <h2>Echo webhook</h2>
+    <p class="hint">POST JSON to <code>/webhooks/echo</code>:</p>
+    <pre><%= ~S(curl -X POST http://localhost:4000/webhooks/echo \
+  -H 'content-type: application/json' \
+  -d '{"external_id":"1","text":"/start","idempotency_key":"demo-1"}') %></pre>
+  </section>
+</.admin_shell>

@@ -1,0 +1,24 @@
+<.admin_shell current_admin={@current_admin} current_path={@current_path}>
+  <h1>Triggers</h1>
+
+  <section class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th><th>Channel</th><th>Type</th><th>Match</th><th>Flow</th><th>Priority</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr :for={trigger <- @triggers}>
+          <td>{trigger.name}</td>
+          <td>{trigger.channel}</td>
+          <td>{trigger.type}</td>
+          <td><code>{json(trigger.match)}</code></td>
+          <td><code>{trigger.bot_flow.slug}:{trigger.start_node_id}</code></td>
+          <td>{trigger.priority}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p :if={@triggers == []} class="empty">No triggers yet.</p>
+  </section>
+</.admin_shell>

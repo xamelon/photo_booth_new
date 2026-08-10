@@ -1,0 +1,10 @@
+<main class="login-page">
+  <form method="post" action={~p"/login"} class="login-card">
+    <h1>Bot Machine</h1>
+    <p :if={@error} class="login-error">{@error}</p>
+    <label>Email<input name="email" type="email" required autofocus /></label>
+    <label>Пароль<input name="password" type="password" required /></label>
+    <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+    <button>Войти</button>
+  </form>
+</main>
