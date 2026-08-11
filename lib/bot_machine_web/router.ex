@@ -58,6 +58,7 @@ defmodule BotMachineWeb.Router do
     post "/bot/channels/vk", BotController, :create_vk
     post "/bot/channels/vk/:connection_id", BotController, :save_vk
     post "/bot/channels/vk/:connection_id/provision", BotController, :provision_vk
+    post "/bot/channels/vk/:connection_id/refresh", BotController, :refresh_vk
     post "/bot/channels/:connection_id/flows", BotController, :save_connection_flows
     get "/bot/sandbox", BotController, :sandbox
     post "/bot/sandbox/send", BotController, :sandbox_send

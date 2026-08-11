@@ -63,8 +63,15 @@ defmodule BotMachine.BotRuntime do
     })
     |> Repo.insert()
     |> case do
-      {:ok, connection} -> BotMachine.BotRuntime.Credentials.put_connection(connection, attrs)
-      error -> error
+      {:ok, connection} ->
+        with {:ok, connection} <-
+               BotMachine.BotRuntime.Credentials.put_connection(connection, attrs) do
+          refresh_vk_connection_info(connection)
+          {:ok, connection}
+        end
+
+      error ->
+        error
     end
   end
 
@@ -75,10 +82,39 @@ defmodule BotMachine.BotRuntime do
     |> BotChannelConnection.changeset(%{name: attrs["name"] || connection.name})
     |> Repo.update()
     |> case do
-      {:ok, connection} -> BotMachine.BotRuntime.Credentials.put_connection(connection, attrs)
-      error -> error
+      {:ok, connection} ->
+        with {:ok, connection} <-
+               BotMachine.BotRuntime.Credentials.put_connection(connection, attrs) do
+          refresh_vk_connection_info(connection)
+          {:ok, connection}
+        end
+
+      error ->
+        error
     end
   end
+
+  def refresh_vk_connection_info(id) when is_binary(id) or is_integer(id),
+    do: id |> get_channel_connection!() |> refresh_vk_connection_info()
+
+  def refresh_vk_connection_info(%BotChannelConnection{channel: "vk"} = connection) do
+    creds = BotMachine.BotRuntime.Credentials.for_connection(connection)
+
+    case BotMachine.BotRuntime.Channels.VK.group_info(creds) do
+      {:ok, info} ->
+        connection
+        |> BotChannelConnection.changeset(%{
+          external_id: creds["group_id"] || connection.external_id,
+          config: Map.merge(connection.config || %{}, info)
+        })
+        |> Repo.update()
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  def refresh_vk_connection_info(_connection), do: {:error, "not a VK connection"}
 
   def flow_connection_matrix do
     flows = list_flows()
@@ -165,7 +201,13 @@ defmodule BotMachine.BotRuntime do
       bot_users: Repo.aggregate(BotUser, :count),
       sessions: Repo.aggregate(BotSession, :count),
       inbox: Repo.aggregate(InboxEvent, :count),
+      inbox_failed: Repo.aggregate(from(e in InboxEvent, where: e.status == "failed"), :count),
+      inbox_pending: Repo.aggregate(from(e in InboxEvent, where: e.status == "pending"), :count),
       outbox: Repo.aggregate(OutboxMessage, :count),
+      outbox_failed:
+        Repo.aggregate(from(m in OutboxMessage, where: m.status == "failed"), :count),
+      outbox_pending:
+        Repo.aggregate(from(m in OutboxMessage, where: m.status == "pending"), :count),
       events: Repo.aggregate(BotEvent, :count),
       flows: Repo.aggregate(BotFlow, :count),
       triggers: Repo.aggregate(BotTrigger, :count)
@@ -175,16 +217,19 @@ defmodule BotMachine.BotRuntime do
   def list_users do
     Repo.all(
       from u in BotUser,
+        left_join: c in assoc(u, :bot_channel_connection),
         left_join: s in BotSession,
         on: s.bot_user_id == u.id,
-        group_by: u.id,
+        group_by: [u.id, c.id],
         order_by: [desc: max(s.updated_at), desc: u.updated_at],
         limit: 100,
         select: %{
           id: u.id,
           channel: u.channel,
+          connection_name: c.name,
           external_id: u.external_id,
           display_name: u.display_name,
+          metadata: u.metadata,
           blocked_at: u.blocked_at,
           inserted_at: u.inserted_at,
           updated_at: u.updated_at,
@@ -196,7 +241,7 @@ defmodule BotMachine.BotRuntime do
   end
 
   def get_user_detail(id) do
-    user = Repo.get(BotUser, id)
+    user = Repo.get(BotUser, id) |> Repo.preload(:bot_channel_connection)
 
     if user do
       sessions =
@@ -210,7 +255,9 @@ defmodule BotMachine.BotRuntime do
       inbox =
         Repo.all(
           from e in InboxEvent,
-            where: e.channel == ^user.channel and e.external_id == ^user.external_id,
+            where:
+              e.bot_channel_connection_id == ^user.bot_channel_connection_id and
+                e.external_id == ^user.external_id,
             order_by: [desc: e.inserted_at],
             limit: 30
         )
@@ -218,7 +265,9 @@ defmodule BotMachine.BotRuntime do
       outbox =
         Repo.all(
           from m in OutboxMessage,
-            where: m.channel == ^user.channel and m.external_id == ^user.external_id,
+            where:
+              m.bot_channel_connection_id == ^user.bot_channel_connection_id and
+                m.external_id == ^user.external_id,
             order_by: [desc: m.inserted_at],
             limit: 30
         )
@@ -227,22 +276,80 @@ defmodule BotMachine.BotRuntime do
     end
   end
 
-  def list_sessions,
-    do:
-      Repo.all(
-        from s in BotSession,
-          join: u in assoc(s, :bot_user),
-          preload: [bot_user: u],
-          order_by: [desc: s.updated_at],
-          limit: 50
-      )
+  def list_sessions(filters \\ %{}) do
+    BotSession
+    |> join(:inner, [s], u in assoc(s, :bot_user))
+    |> join(:left, [s, u], c in assoc(s, :bot_channel_connection))
+    |> maybe_filter_connection(filters)
+    |> maybe_filter_flow(filters)
+    |> maybe_filter_session_user(filters)
+    |> order_by([s], desc: s.updated_at)
+    |> limit(50)
+    |> preload([s, u, c], bot_user: u, bot_channel_connection: c)
+    |> Repo.all()
+  end
 
-  def list_inbox, do: Repo.all(from e in InboxEvent, order_by: [desc: e.inserted_at], limit: 50)
+  def list_inbox(filters \\ %{}), do: list_queue(InboxEvent, filters)
+  def list_outbox(filters \\ %{}), do: list_queue(OutboxMessage, filters)
 
-  def list_outbox,
-    do: Repo.all(from m in OutboxMessage, order_by: [desc: m.inserted_at], limit: 50)
+  def list_events(filters \\ %{}) do
+    BotEvent
+    |> join(:left, [e], c in assoc(e, :bot_channel_connection))
+    |> maybe_filter_connection(filters)
+    |> maybe_filter_flow(filters)
+    |> maybe_filter_event_type(filters)
+    |> order_by([e], desc: e.inserted_at)
+    |> limit(100)
+    |> preload([e, c], bot_channel_connection: c)
+    |> Repo.all()
+  end
 
-  def list_events, do: Repo.all(from e in BotEvent, order_by: [desc: e.inserted_at], limit: 100)
+  defp list_queue(schema, filters) do
+    schema
+    |> join(:left, [q], c in assoc(q, :bot_channel_connection))
+    |> maybe_filter_connection(filters)
+    |> maybe_filter_status(filters)
+    |> maybe_filter_user(filters)
+    |> order_by([q], desc: q.inserted_at)
+    |> limit(50)
+    |> preload([q, c], bot_channel_connection: c)
+    |> Repo.all()
+  end
+
+  defp maybe_filter_connection(query, %{"connection_id" => id}) when id not in [nil, ""],
+    do: where(query, [row], row.bot_channel_connection_id == ^id)
+
+  defp maybe_filter_connection(query, _filters), do: query
+
+  defp maybe_filter_status(query, %{"status" => status}) when status not in [nil, ""],
+    do: where(query, [row], row.status == ^status)
+
+  defp maybe_filter_status(query, _filters), do: query
+
+  defp maybe_filter_flow(query, %{"flow_id" => flow_id}) when flow_id not in [nil, ""],
+    do: where(query, [row], row.flow_id == ^flow_id)
+
+  defp maybe_filter_flow(query, _filters), do: query
+
+  defp maybe_filter_event_type(query, %{"event_type" => event_type})
+       when event_type not in [nil, ""],
+       do: where(query, [row], row.event_type == ^event_type)
+
+  defp maybe_filter_event_type(query, _filters), do: query
+
+  defp maybe_filter_user(query, %{"q" => q}) when q not in [nil, ""] do
+    q = "%#{q}%"
+    where(query, [row], like(row.external_id, ^q))
+  end
+
+  defp maybe_filter_user(query, _filters), do: query
+
+  defp maybe_filter_session_user(query, %{"q" => q}) when q not in [nil, ""] do
+    q = "%#{q}%"
+    where(query, [_s, u, _c], like(u.external_id, ^q))
+  end
+
+  defp maybe_filter_session_user(query, _filters), do: query
 
   def list_flows do
     Repo.all(from f in BotFlow, order_by: [asc: f.slug])
@@ -538,18 +645,66 @@ defmodule BotMachine.BotRuntime do
   end
 
   defp get_or_create_user(connection, input) do
-    Repo.get_by(BotUser,
-      bot_channel_connection_id: connection.id,
-      external_id: input["external_id"]
-    ) ||
-      %BotUser{}
-      |> BotUser.changeset(%{
+    user =
+      Repo.get_by(BotUser,
         bot_channel_connection_id: connection.id,
-        channel: connection.channel,
-        external_id: input["external_id"],
-        display_name: input["display_name"]
-      })
-      |> Repo.insert!()
+        external_id: input["external_id"]
+      )
+
+    cond do
+      user && user.display_name in [nil, ""] && connection.channel == "vk" ->
+        enrich_vk_user(user, connection)
+
+      user ->
+        user
+
+      true ->
+        attrs =
+          %{
+            bot_channel_connection_id: connection.id,
+            channel: connection.channel,
+            external_id: input["external_id"],
+            display_name: input["display_name"]
+          }
+          |> maybe_put_vk_user_info(connection)
+
+        %BotUser{}
+        |> BotUser.changeset(attrs)
+        |> Repo.insert!()
+    end
+  end
+
+  defp maybe_put_vk_user_info(attrs, %{channel: "vk"} = connection) do
+    creds = BotMachine.BotRuntime.Credentials.for_connection(connection)
+
+    case BotMachine.BotRuntime.Channels.VK.user_info(creds, attrs.external_id) do
+      {:ok, %{"display_name" => name, "photo_url" => photo_url}} ->
+        attrs
+        |> Map.put(:display_name, name)
+        |> Map.put(:metadata, %{"photo_url" => photo_url})
+
+      _ ->
+        attrs
+    end
+  end
+
+  defp maybe_put_vk_user_info(attrs, _connection), do: attrs
+
+  defp enrich_vk_user(user, connection) do
+    creds = BotMachine.BotRuntime.Credentials.for_connection(connection)
+
+    case BotMachine.BotRuntime.Channels.VK.user_info(creds, user.external_id) do
+      {:ok, %{"display_name" => name, "photo_url" => photo_url}} ->
+        user
+        |> BotUser.changeset(%{
+          display_name: name,
+          metadata: Map.put(user.metadata || %{}, "photo_url", photo_url)
+        })
+        |> Repo.update!()
+
+      _ ->
+        user
+    end
   end
 
   defp flow_edges(flow) do

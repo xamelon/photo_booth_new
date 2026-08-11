@@ -1,8 +1,8 @@
 <.admin_shell current_admin={@current_admin} current_path={@current_path}>
   <h1>Bot Machine</h1>
 
-  <div class="stats">
-    <.stat label="Bot users" value={@counts.bot_users} />
+  <div class="stats dense-stats">
+    <.stat label="Users" value={@counts.bot_users} />
     <.stat label="Sessions" value={@counts.sessions} />
     <.stat label="Inbox" value={@counts.inbox} />
     <.stat label="Outbox" value={@counts.outbox} />
@@ -10,6 +10,31 @@
     <.stat label="Flows" value={@counts.flows} />
     <.stat label="Triggers" value={@counts.triggers} />
   </div>
+
+  <section class="panel">
+    <h2>Runtime health</h2>
+    <table class="ops-table">
+      <thead>
+        <tr>
+          <th>Queue</th><th class="num">Pending</th><th class="num">Failed</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Inbox</td>
+          <td class="num">{@counts.inbox_pending}</td>
+          <td class="num danger-text">{@counts.inbox_failed}</td>
+          <td><.badge status={if @counts.inbox_failed > 0, do: "failed", else: "ok"} /></td>
+        </tr>
+        <tr>
+          <td>Outbox</td>
+          <td class="num">{@counts.outbox_pending}</td>
+          <td class="num danger-text">{@counts.outbox_failed}</td>
+          <td><.badge status={if @counts.outbox_failed > 0, do: "failed", else: "ok"} /></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
 
   <section class="panel">
     <h2>Echo webhook</h2>

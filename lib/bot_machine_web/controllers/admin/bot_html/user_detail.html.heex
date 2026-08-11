@@ -3,7 +3,9 @@
     <div>
       <a class="back-link" href={~p"/admin/bot/users"}>← Users</a>
       <h1>{@user.user.channel}:{@user.user.external_id}</h1>
-      <p class="page-subtitle">{@user.user.display_name || "Bot user"}</p>
+      <p class="page-subtitle">
+        {connection_label(@user.user)} · {@user.user.display_name || "Bot user"}
+      </p>
     </div>
     <.badge status={if @user.user.blocked_at, do: "blocked", else: "active"} />
   </div>
@@ -44,7 +46,7 @@
       </div>
       <% active =
         Enum.find(@user.sessions, &is_nil(&1.completed_at)) || List.first(@user.sessions) %>
-      <pre class="json-block"><code>{json(active && active.context)}</code></pre>
+      <pre class="json-block"><code>{pretty_json(active && active.context)}</code></pre>
     </section>
   </div>
 
@@ -60,15 +62,21 @@
       <table>
         <thead>
           <tr>
-            <th>Status</th><th>Payload</th><th>At</th>
+            <th>Status</th><th>Summary</th><th>Raw</th><th>At</th>
           </tr>
         </thead>
         <tbody>
-          <tr :for={event <- @user.inbox}>
-            <td><.badge status={event.status} /></td>
-            <td><code>{json(event.payload)}</code></td>
-            <td>{format_time(event.inserted_at)}</td>
-          </tr>
+          <%= for event <- @user.inbox do %>
+            <tr class="click-row" onclick="this.nextElementSibling.toggleAttribute('hidden')">
+              <td><.badge status={event.status} /></td>
+              <td>{payload_summary(event.payload)}</td>
+              <td><span class="raw-toggle">json</span></td>
+              <td>{format_time(event.inserted_at)}</td>
+            </tr>
+            <tr class="raw-full-row" hidden>
+              <td colspan="4"><pre><code>{pretty_json(event.payload)}</code></pre></td>
+            </tr>
+          <% end %>
         </tbody>
       </table>
       <p :if={@user.inbox == []} class="empty">No inbox events.</p>
@@ -85,15 +93,21 @@
       <table>
         <thead>
           <tr>
-            <th>Status</th><th>Payload</th><th>At</th>
+            <th>Status</th><th>Summary</th><th>Raw</th><th>At</th>
           </tr>
         </thead>
         <tbody>
-          <tr :for={message <- @user.outbox}>
-            <td><.badge status={message.status} /></td>
-            <td><code>{json(message.payload)}</code></td>
-            <td>{format_time(message.inserted_at)}</td>
-          </tr>
+          <%= for message <- @user.outbox do %>
+            <tr class="click-row" onclick="this.nextElementSibling.toggleAttribute('hidden')">
+              <td><.badge status={message.status} /></td>
+              <td>{payload_summary(message.payload)}</td>
+              <td><span class="raw-toggle">json</span></td>
+              <td>{format_time(message.inserted_at)}</td>
+            </tr>
+            <tr class="raw-full-row" hidden>
+              <td colspan="4"><pre><code>{pretty_json(message.payload)}</code></pre></td>
+            </tr>
+          <% end %>
         </tbody>
       </table>
       <p :if={@user.outbox == []} class="empty">No outbox messages.</p>

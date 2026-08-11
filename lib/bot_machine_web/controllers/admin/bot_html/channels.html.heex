@@ -24,12 +24,28 @@
         </thead>
         <tbody>
           <tr :for={connection <- @connections}>
-            <td><strong>{connection.name}</strong></td>
+            <% vk = if connection.channel == "vk", do: @credential.(connection) || %{}, else: %{} %>
+            <td>
+              <span class="connection-identity">
+                <img
+                  :if={connection.config["group_photo_url"]}
+                  src={connection.config["group_photo_url"]}
+                  alt=""
+                />
+                <strong>{connection.config["group_name"] || connection.name}</strong>
+              </span>
+            </td>
             <td>{connection.channel}</td>
-            <td><code>{connection.external_id || "—"}</code></td>
+            <td><code>{vk["group_id"] || connection.external_id || "—"}</code></td>
             <td>{connection.flow_connection_count || 0}</td>
-            <td class="mono-cell">
+            <td class="mono-cell webhook-cell">
               <code :if={connection.channel == "vk"}>{@callback_url.(connection)}</code>
+              <button
+                :if={connection.channel == "vk"}
+                type="button"
+                class="link-button mini-copy"
+                onclick={"navigator.clipboard.writeText('#{@callback_url.(connection)}')"}
+              >copy</button>
               <span :if={connection.channel != "vk"}>—</span>
             </td>
           </tr>
@@ -52,7 +68,14 @@
       >
         <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
         <div>
-          <strong>{connection.name}</strong>
+          <span class="connection-identity">
+            <img
+              :if={connection.config["group_photo_url"]}
+              src={connection.config["group_photo_url"]}
+              alt=""
+            />
+            <strong>{connection.config["group_name"] || connection.name}</strong>
+          </span>
           <small>{connection.channel} · {connection.external_id || connection.public_id}</small>
         </div>
 
@@ -108,7 +131,14 @@
         <% vk = @credential.(connection) || %{} %>
 
         <div class="connection-meta">
-          <strong>{connection.name}</strong>
+          <span class="connection-identity">
+            <img
+              :if={connection.config["group_photo_url"]}
+              src={connection.config["group_photo_url"]}
+              alt=""
+            />
+            <strong>{connection.config["group_name"] || connection.name}</strong>
+          </span>
           <small>token: {if vk["group_access_token"], do: "configured", else: "missing"}</small>
           <small>server: {vk["callback_server_id"] || "—"}</small>
         </div>
@@ -144,14 +174,24 @@
           <button class="secondary-button compact-button">Save</button>
         </form>
 
-        <form method="post" action={~p"/admin/bot/channels/vk/#{connection.id}/provision"}>
-          <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
-          <button class="secondary-button compact-button">Provision</button>
-        </form>
+        <div class="connection-actions">
+          <form method="post" action={~p"/admin/bot/channels/vk/#{connection.id}/refresh"}>
+            <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+            <button class="secondary-button compact-button">Refresh</button>
+          </form>
+          <form method="post" action={~p"/admin/bot/channels/vk/#{connection.id}/provision"}>
+            <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+            <button class="secondary-button compact-button">Provision</button>
+          </form>
+        </div>
 
-        <p :if={vk["last_provision_error"] not in [nil, ""]} class="channel-error compact-error">
-          {vk["last_provision_error"]}
-        </p>
+        <details
+          :if={vk["last_provision_error"] not in [nil, ""]}
+          class="channel-error compact-error"
+        >
+          <summary>VK provisioning failed</summary>
+          <code>{vk["last_provision_error"]}</code>
+        </details>
       </div>
     </div>
   </section>

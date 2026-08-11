@@ -20,7 +20,7 @@ defmodule BotMachineWeb.VKWebhookController do
 
   defp handle(conn, params, connection) do
     cond do
-      response = VK.handle_protocol(params) ->
+      response = VK.handle_protocol(params, connection) ->
         Logger.info("VK webhook confirmation group_id=#{params["group_id"] || "?"}")
         BotMachine.BotRuntime.Channels.VKProvisioning.mark_confirmation_received(connection)
         text(conn, response)

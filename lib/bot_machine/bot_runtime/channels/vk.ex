@@ -4,12 +4,15 @@ defmodule BotMachine.BotRuntime.Channels.VK do
 
   @api_version System.get_env("VK_API_VERSION") || "5.199"
 
-  @spec handle_protocol(VKTypes.callback_body()) :: String.t() | nil
-  def handle_protocol(%{"type" => "confirmation"}) do
-    get_in(Credentials.get("vk") || %{}, ["confirmation_code"])
+  @spec handle_protocol(VKTypes.callback_body(), map() | nil) :: String.t() | nil
+  def handle_protocol(body, connection \\ nil)
+
+  def handle_protocol(%{"type" => "confirmation"}, connection) do
+    creds = if connection, do: Credentials.for_connection(connection), else: Credentials.get("vk")
+    get_in(creds || %{}, ["confirmation_code"])
   end
 
-  def handle_protocol(_), do: nil
+  def handle_protocol(_, _), do: nil
 
   @spec parse_inbound(VKTypes.callback_body()) :: VKTypes.inbound_event() | nil
   def parse_inbound(%{"type" => "message_new"} = body) do
@@ -71,6 +74,71 @@ defmodule BotMachine.BotRuntime.Channels.VK do
           end
         end
     end
+  end
+
+  def user_info(creds, user_id) do
+    token = creds["group_access_token"]
+
+    cond do
+      token in [nil, ""] or user_id in [nil, ""] ->
+        {:error, "VK token and user_id are required"}
+
+      true ->
+        case post_vk("users.get", %{"user_ids" => user_id, "fields" => "photo_50"}, token) do
+          {:ok, %{"response" => [user | _]}} ->
+            {:ok,
+             %{
+               "display_name" =>
+                 Enum.join([user["first_name"], user["last_name"]], " ") |> String.trim(),
+               "photo_url" => user["photo_50"]
+             }}
+
+          {:ok, %{"error" => error}} ->
+            {:error, error["error_msg"] || "VK API error"}
+
+          {:ok, other} ->
+            {:error, "VK users.get returned invalid response: #{inspect(other)}"}
+
+          error ->
+            error
+        end
+    end
+  end
+
+  def group_info(creds) do
+    token = creds["group_access_token"]
+    group_id = creds["group_id"]
+
+    cond do
+      token in [nil, ""] or group_id in [nil, ""] ->
+        {:error, "VK group_id and token are required"}
+
+      true ->
+        case post_vk("groups.getById", %{"group_id" => group_id, "fields" => "photo_50"}, token) do
+          {:ok, %{"response" => [group | _]}} ->
+            {:ok, normalize_group(group)}
+
+          {:ok, %{"response" => %{"groups" => [group | _]}}} ->
+            {:ok, normalize_group(group)}
+
+          {:ok, %{"error" => error}} ->
+            {:error, error["error_msg"] || "VK API error"}
+
+          {:ok, other} ->
+            {:error, "VK groups.getById returned invalid response: #{inspect(other)}"}
+
+          error ->
+            error
+        end
+    end
+  end
+
+  defp normalize_group(group) do
+    %{
+      "group_name" => group["name"],
+      "group_screen_name" => group["screen_name"],
+      "group_photo_url" => group["photo_50"]
+    }
   end
 
   defp resolve_attachments([], _peer_id, _token), do: {:ok, nil}

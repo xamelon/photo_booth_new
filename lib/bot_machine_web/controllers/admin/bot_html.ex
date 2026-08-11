@@ -124,6 +124,43 @@ defmodule BotMachineWeb.Admin.BotHTML do
   end
 
   def json(value), do: Jason.encode!(value || %{})
+  def pretty_json(value), do: Jason.encode!(value || %{}, pretty: true)
+
+  def connection_label(%{bot_channel_connection: %{name: name}}) when is_binary(name), do: name
+  def connection_label(%{channel: channel}), do: channel || "—"
+  def connection_label(_), do: "—"
+
+  def payload_summary(nil), do: "—"
+
+  def payload_summary(payload) do
+    text = payload["text"] || payload[:text]
+    buttons = length(payload["buttons"] || payload[:buttons] || [])
+    rows = length(payload["button_rows"] || payload[:button_rows] || [])
+    attachments = length(payload["attachments"] || payload[:attachments] || [])
+
+    [
+      if(text, do: text |> to_string() |> String.replace(~r/\s+/, " ") |> String.slice(0, 80)),
+      if(buttons > 0, do: "#{buttons} buttons"),
+      if(rows > 0, do: "#{rows} rows"),
+      if(attachments > 0, do: "#{attachments} attachments")
+    ]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> case do
+      [] -> payload["kind"] || payload["type"] || "payload"
+      parts -> Enum.join(parts, " · ")
+    end
+  end
+
+  def event_types(events),
+    do:
+      events |> Enum.map(& &1.event_type) |> Enum.reject(&is_nil/1) |> Enum.uniq() |> Enum.sort()
+
+  def event_groups(events) do
+    events
+    |> Enum.chunk_by(& &1.bot_session_id)
+    |> Enum.map(fn events -> %{id: List.first(events).bot_session_id, events: events} end)
+  end
+
   def format_time(nil), do: "—"
   def format_time(%DateTime{} = value), do: Calendar.strftime(value, "%Y-%m-%d %H:%M")
   def format_time(value), do: to_string(value)

@@ -18,17 +18,43 @@ defmodule BotMachineWeb.Admin.BotController do
     end
   end
 
-  def sessions(conn, _params),
-    do: render(conn, :sessions, sessions: BotRuntime.list_sessions())
+  def sessions(conn, params),
+    do:
+      render(conn, :sessions,
+        sessions: BotRuntime.list_sessions(params),
+        filters: params,
+        connections: BotRuntime.list_channel_connections(),
+        flows: BotRuntime.list_flows()
+      )
 
-  def inbox(conn, _params),
-    do: render(conn, :queue, title: "Inbox", rows: BotRuntime.list_inbox())
+  def inbox(conn, params),
+    do:
+      render(conn, :queue,
+        title: "Inbox",
+        rows: BotRuntime.list_inbox(params),
+        filters: params,
+        connections: BotRuntime.list_channel_connections(),
+        path: ~p"/admin/bot/inbox"
+      )
 
-  def outbox(conn, _params),
-    do: render(conn, :queue, title: "Outbox", rows: BotRuntime.list_outbox())
+  def outbox(conn, params),
+    do:
+      render(conn, :queue,
+        title: "Outbox",
+        rows: BotRuntime.list_outbox(params),
+        filters: params,
+        connections: BotRuntime.list_channel_connections(),
+        path: ~p"/admin/bot/outbox"
+      )
 
-  def events(conn, _params),
-    do: render(conn, :events, events: BotRuntime.list_events())
+  def events(conn, params),
+    do:
+      render(conn, :events,
+        events: BotRuntime.list_events(params),
+        filters: params,
+        connections: BotRuntime.list_channel_connections(),
+        flows: BotRuntime.list_flows()
+      )
 
   def flows(conn, _params),
     do: render(conn, :flows, flows: BotRuntime.list_flows())
@@ -117,9 +143,18 @@ defmodule BotMachineWeb.Admin.BotController do
     connection = BotRuntime.get_channel_connection!(id)
 
     case BotMachine.BotRuntime.Channels.VKProvisioning.provision(connection) do
-      {:ok, _} -> redirect(conn, to: ~p"/admin/bot/channels")
-      {:error, error} -> send_resp(conn, 422, error)
+      {:ok, _} ->
+        BotRuntime.refresh_vk_connection_info(connection)
+        redirect(conn, to: ~p"/admin/bot/channels")
+
+      {:error, error} ->
+        send_resp(conn, 422, error)
     end
+  end
+
+  def refresh_vk(conn, %{"connection_id" => id}) do
+    BotRuntime.refresh_vk_connection_info(id)
+    redirect(conn, to: ~p"/admin/bot/channels")
   end
 
   def save_connection_flows(conn, %{"connection_id" => id} = params) do
