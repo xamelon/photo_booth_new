@@ -1,0 +1,14 @@
+services:
+  app:
+    image: ${IMAGE_NAME}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${HOST_PORT:-4000}:4000"
+    volumes:
+      - bot_machine_data:/app/data
+      - bot_machine_storage:/app/storage
+
+volumes:
+  bot_machine_data:
+  bot_machine_storage:

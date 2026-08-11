@@ -1,5 +1,4 @@
 defmodule BotMachine.BotRuntime.Media do
-  @upload_dir Path.expand("storage/uploads/bot")
   @public_prefix "/uploads/bot"
   @max_bytes 5 * 1024 * 1024
   @allowed %{
@@ -9,7 +8,11 @@ defmodule BotMachine.BotRuntime.Media do
     "image/gif" => ".gif"
   }
 
-  def upload_dir, do: @upload_dir
+  def upload_dir do
+    System.get_env("STORAGE_DIR", "storage/uploads")
+    |> Path.expand()
+    |> Path.join("bot")
+  end
 
   def path(filename) do
     safe = sanitize_filename(filename)
@@ -17,7 +20,7 @@ defmodule BotMachine.BotRuntime.Media do
     if safe == "" or safe != filename do
       {:error, "invalid filename"}
     else
-      {:ok, Path.join(@upload_dir, safe)}
+      {:ok, Path.join(upload_dir(), safe)}
     end
   end
 
@@ -25,8 +28,8 @@ defmodule BotMachine.BotRuntime.Media do
     with :ok <- validate_size(bytes),
          {:ok, ext} <- extension(content_type),
          {:ok, filename} <- filename_for_ref(ref, ext) do
-      File.mkdir_p!(@upload_dir)
-      path = Path.join(@upload_dir, filename)
+      File.mkdir_p!(upload_dir())
+      path = Path.join(upload_dir(), filename)
       File.write!(path, bytes)
       {:ok, %{url: "#{@public_prefix}/#{filename}", filename: filename, path: path}}
     end
