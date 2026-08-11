@@ -54,6 +54,61 @@ defmodule BotMachine.BotRuntime do
     }
   end
 
+  def list_users do
+    Repo.all(
+      from u in BotUser,
+        left_join: s in BotSession,
+        on: s.bot_user_id == u.id,
+        group_by: u.id,
+        order_by: [desc: max(s.updated_at), desc: u.updated_at],
+        limit: 100,
+        select: %{
+          id: u.id,
+          channel: u.channel,
+          external_id: u.external_id,
+          display_name: u.display_name,
+          blocked_at: u.blocked_at,
+          inserted_at: u.inserted_at,
+          updated_at: u.updated_at,
+          sessions_count: count(s.id),
+          last_seen_at: max(s.updated_at)
+        }
+    )
+    |> Enum.map(&Map.put(&1, :active_session, active_session_for_user(&1.id)))
+  end
+
+  def get_user_detail(id) do
+    user = Repo.get(BotUser, id)
+
+    if user do
+      sessions =
+        Repo.all(
+          from s in BotSession,
+            where: s.bot_user_id == ^user.id,
+            order_by: [desc: s.updated_at],
+            limit: 20
+        )
+
+      inbox =
+        Repo.all(
+          from e in InboxEvent,
+            where: e.channel == ^user.channel and e.external_id == ^user.external_id,
+            order_by: [desc: e.inserted_at],
+            limit: 30
+        )
+
+      outbox =
+        Repo.all(
+          from m in OutboxMessage,
+            where: m.channel == ^user.channel and m.external_id == ^user.external_id,
+            order_by: [desc: m.inserted_at],
+            limit: 30
+        )
+
+      %{user: user, sessions: sessions, inbox: inbox, outbox: outbox}
+    end
+  end
+
   def list_sessions,
     do:
       Repo.all(
@@ -72,12 +127,18 @@ defmodule BotMachine.BotRuntime do
   def list_events, do: Repo.all(from e in BotEvent, order_by: [desc: e.inserted_at], limit: 100)
 
   def list_flows do
-    Repo.all(
-      from f in BotFlow,
-        left_join: v in assoc(f, :versions),
-        preload: [versions: v],
-        order_by: [asc: f.slug]
-    )
+    Repo.all(from f in BotFlow, order_by: [asc: f.slug])
+    |> Enum.map(fn flow ->
+      latest =
+        Repo.one(
+          from v in BotFlowVersion,
+            where: v.bot_flow_id == ^flow.id,
+            order_by: [desc: v.version],
+            limit: 1
+        )
+
+      %{flow | versions: Enum.reject([latest], &is_nil/1)}
+    end)
   end
 
   def list_triggers do
@@ -98,25 +159,13 @@ defmodule BotMachine.BotRuntime do
     )
   end
 
-  def save_flow_definition(%BotFlowVersion{} = base, definition) do
+  def save_flow_definition(%BotFlowVersion{} = version, definition) do
     issues = Validator.validate(definition, BotMachine.ExampleBot.registry())
 
     if issues == [] do
-      next_version =
-        Repo.one(
-          from v in BotFlowVersion,
-            where: v.bot_flow_id == ^base.bot_flow_id,
-            select: max(v.version)
-        ) + 1
-
-      %BotFlowVersion{}
-      |> BotFlowVersion.changeset(%{
-        bot_flow_id: base.bot_flow_id,
-        version: next_version,
-        status: "draft",
-        definition: definition
-      })
-      |> Repo.insert()
+      version
+      |> BotFlowVersion.changeset(%{definition: definition})
+      |> Repo.update()
     else
       {:error, issues}
     end
@@ -462,9 +511,17 @@ defmodule BotMachine.BotRuntime do
     Repo.one(
       from v in BotFlowVersion,
         join: f in assoc(v, :bot_flow),
-        where:
-          f.slug == ^session.flow_id and v.version == ^session.flow_version and
-            v.status in ["published", "draft"],
+        where: f.slug == ^session.flow_id and v.status in ["published", "draft"],
+        order_by: [desc: v.version],
+        limit: 1
+    )
+  end
+
+  defp active_session_for_user(user_id) do
+    Repo.one(
+      from s in BotSession,
+        where: s.bot_user_id == ^user_id and is_nil(s.completed_at),
+        order_by: [desc: s.updated_at],
         limit: 1
     )
   end

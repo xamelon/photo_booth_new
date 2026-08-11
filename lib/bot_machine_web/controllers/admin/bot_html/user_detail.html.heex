@@ -1,0 +1,89 @@
+<.admin_shell current_admin={@current_admin} current_path={@current_path}>
+  <div class="page-header">
+    <div>
+      <a class="back-link" href={~p"/admin/bot/users"}>← Users</a>
+      <h1>{@user.user.channel}:{@user.user.external_id}</h1>
+      <p class="page-subtitle">{(@user.user.display_name || "Bot user")}</p>
+    </div>
+    <.badge status={if @user.user.blocked_at, do: "blocked", else: "active"} />
+  </div>
+
+  <div class="detail-grid">
+    <section class="panel detail-section">
+      <div class="section-heading">
+        <div>
+          <h2>Sessions</h2>
+          <p>Last 20 flow runs for this user.</p>
+        </div>
+        <span>{@user.sessions |> length}</span>
+      </div>
+      <table>
+        <thead><tr><th>Flow</th><th>Node</th><th>State</th><th>Updated</th></tr></thead>
+        <tbody>
+          <tr :for={session <- @user.sessions}>
+            <td><code>{session.flow_id} v{session.flow_version}</code></td>
+            <td><code>{session.current_node_id}</code></td>
+            <td>{if session.completed_at, do: "completed", else: "active"}</td>
+            <td>{format_time(session.updated_at)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p :if={@user.sessions == []} class="empty">No sessions.</p>
+    </section>
+
+    <section class="panel detail-section">
+      <div class="section-heading">
+        <div>
+          <h2>Latest context</h2>
+          <p>Session memory used by messages, actions and conditions.</p>
+        </div>
+      </div>
+      <% active = Enum.find(@user.sessions, &is_nil(&1.completed_at)) || List.first(@user.sessions) %>
+      <pre class="json-block"><code>{json(active && active.context)}</code></pre>
+    </section>
+  </div>
+
+  <div class="detail-grid">
+    <section class="panel detail-section">
+      <div class="section-heading">
+        <div>
+          <h2>Inbox</h2>
+          <p>Incoming webhook/user messages.</p>
+        </div>
+        <span>{@user.inbox |> length}</span>
+      </div>
+      <table>
+        <thead><tr><th>Status</th><th>Payload</th><th>At</th></tr></thead>
+        <tbody>
+          <tr :for={event <- @user.inbox}>
+            <td><.badge status={event.status} /></td>
+            <td><code>{json(event.payload)}</code></td>
+            <td>{format_time(event.inserted_at)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p :if={@user.inbox == []} class="empty">No inbox events.</p>
+    </section>
+
+    <section class="panel detail-section">
+      <div class="section-heading">
+        <div>
+          <h2>Outbox</h2>
+          <p>Messages created by the bot runtime.</p>
+        </div>
+        <span>{@user.outbox |> length}</span>
+      </div>
+      <table>
+        <thead><tr><th>Status</th><th>Payload</th><th>At</th></tr></thead>
+        <tbody>
+          <tr :for={message <- @user.outbox}>
+            <td><.badge status={message.status} /></td>
+            <td><code>{json(message.payload)}</code></td>
+            <td>{format_time(message.inserted_at)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p :if={@user.outbox == []} class="empty">No outbox messages.</p>
+    </section>
+  </div>
+</.admin_shell>

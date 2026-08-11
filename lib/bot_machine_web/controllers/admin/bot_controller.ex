@@ -8,6 +8,16 @@ defmodule BotMachineWeb.Admin.BotController do
   def dashboard(conn, _params),
     do: render(conn, :dashboard, counts: BotRuntime.counts())
 
+  def users(conn, _params),
+    do: render(conn, :users, users: BotRuntime.list_users())
+
+  def user_detail(conn, %{"user_id" => user_id}) do
+    case BotRuntime.get_user_detail(user_id) do
+      nil -> send_resp(conn, 404, "bot user not found")
+      user -> render(conn, :user_detail, user: user)
+    end
+  end
+
   def sessions(conn, _params),
     do: render(conn, :sessions, sessions: BotRuntime.list_sessions())
 

@@ -5,7 +5,7 @@
     <table>
       <thead>
         <tr>
-          <th>Slug</th><th>Name</th><th>Status</th><th>Versions</th>
+          <th>Slug</th><th>Name</th><th>Status</th><th>Flow</th>
         </tr>
       </thead>
       <tbody>
@@ -15,9 +15,7 @@
           <td><.badge status={flow.status} /></td>
           <td>
             <span :for={version <- flow.versions} class="version-links">
-              <a class="inline-link" href={~p"/admin/bot/flows/#{version.id}/view"}>
-                v{version.version} {version.status}
-              </a>
+              <a class="inline-link" href={~p"/admin/bot/flows/#{version.id}/view"}>view</a>
               <a class="inline-link" href={~p"/admin/bot/flows/#{version.id}/edit"}>edit</a>
             </span>
           </td>

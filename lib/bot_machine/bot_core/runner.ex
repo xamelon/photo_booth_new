@@ -84,14 +84,15 @@ defmodule BotMachine.BotCore.Runner do
   defp prepare_session(flow, input, _session, %{"session_mode" => "restart"} = trigger),
     do: prepare_session(flow, input, nil, trigger)
 
-  defp prepare_session(_flow, _input, session, %{
+  defp prepare_session(flow, _input, session, %{
          "start_node_id" => start_node_id,
          "session_mode" => mode
        })
        when mode != "notify_only",
-       do: %{session | current_node_id: start_node_id}
+       do: %{session | current_node_id: start_node_id, flow_version: flow["version"]}
 
-  defp prepare_session(_flow, _input, session, _trigger), do: session
+  defp prepare_session(flow, _input, session, _trigger),
+    do: %{session | flow_version: flow["version"]}
 
   defp ctx(flow, input, registry, session),
     do: %{flow: flow, input: input, registry: registry, session: session}

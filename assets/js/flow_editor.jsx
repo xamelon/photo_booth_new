@@ -223,6 +223,39 @@ function ButtonPreview({ button }) {
   return <div className="preview-button-editor is-overlay"><input readOnly value={button.label || ""} /></div>
 }
 
+function ConditionEditor({ node, nodes, onChange }) {
+  const targets = ["", ...nodes.map((node) => node.id)]
+
+  function updateBranch(index, patch) {
+    onChange({ ...node, branches: replaceAt(node.branches || [], index, (branch) => ({ ...branch, ...patch })) })
+  }
+
+  function updateWhen(index, patch) {
+    updateBranch(index, { when: { op: "exists", path: "", ...(node.branches?.[index]?.when || {}), ...patch } })
+  }
+
+  return (
+    <div className="condition-editor">
+      <div className="condition-editor-header"><span>branches</span><button type="button" className="secondary-button" onClick={() => onChange({ ...node, branches: [...(node.branches || []), { when: { op: "exists", path: "" }, to: "" }] })}>+ branch</button></div>
+      {(node.branches || []).map((branch, index) => <div className="condition-row" key={index}>
+        <label><span>check</span><select value={branch.when?.op || "exists"} onChange={(e) => updateWhen(index, { op: e.target.value })}><option value="exists">exists</option><option value="equals">equals</option></select></label>
+        <label><span>context path</span><input value={branch.when?.path || ""} placeholder="premium" onChange={(e) => updateWhen(index, { path: e.target.value })} /></label>
+        {(branch.when?.op || "exists") === "equals" ? <label><span>equals value</span><input value={branch.when?.value ?? ""} placeholder="true" onChange={(e) => updateWhen(index, { value: parseValue(e.target.value) })} /></label> : null}
+        <label><span>go to</span><div className="condition-route"><span>→</span><select value={branch.to || ""} onChange={(e) => updateBranch(index, { to: e.target.value })}>{targets.map((id) => <option key={id} value={id}>{id || "no target"}</option>)}</select><button type="button" className="muted-delete-button" onClick={() => onChange({ ...node, branches: (node.branches || []).filter((_, itemIndex) => itemIndex !== index) })}>remove</button></div></label>
+      </div>)}
+      {(node.branches || []).length === 0 ? <p>No branches yet.</p> : null}
+      <label><span>else</span><select value={node.default || ""} onChange={(e) => onChange({ ...node, default: e.target.value })}>{targets.map((id) => <option key={id} value={id}>{id || "no target"}</option>)}</select></label>
+    </div>
+  )
+}
+
+function parseValue(value) {
+  if (value === "true") return true
+  if (value === "false") return false
+  if (value === "null") return null
+  return value
+}
+
 function JsonField({ label, value, onChange }) {
   const [draft, setDraft] = useState(JSON.stringify(value || [], null, 2))
   const [error, setError] = useState("")
@@ -238,14 +271,13 @@ function JsonField({ label, value, onChange }) {
   )
 }
 
-function Inspector({ definition, selected, actions, updateNode, deleteNode, setStart, focusTarget }) {
+function Inspector({ definition, selected, actions, updateNode, deleteNode }) {
   if (!selected) return <aside className="flow-editor-inspector empty"><h3>Select a node</h3><p>Drag nodes, connect handles, double-click an edge to delete it.</p></aside>
 
   return (
     <aside className="flow-editor-inspector">
       <div className="flow-inspector-header">
         <strong>{selected.id}</strong>
-        <button type="button" className="secondary-button" onClick={() => setStart(selected.id)}>Set start</button>
       </div>
       <TextField label="id" value={selected.id} onChange={(id) => updateNode(selected.id, { id })} />
       <label><span>type</span><select value={selected.type || "message"} onChange={(e) => updateNode(selected.id, { type: e.target.value })}>{Object.keys(typeLabels).map((type) => <option key={type}>{type}</option>)}</select></label>
@@ -254,7 +286,7 @@ function Inspector({ definition, selected, actions, updateNode, deleteNode, setS
       {selected.type === "action" ? <label><span>action</span><select value={selected.action || ""} onChange={(e) => updateNode(selected.id, { action: e.target.value })}><option value="">choose action</option>{actions.map((action) => <option key={action}>{action}</option>)}</select></label> : null}
       {selected.type !== "end" && selected.type !== "condition" ? <TextField label="next" value={selected.next} placeholder="node id" onChange={(next) => updateNode(selected.id, { next })} /> : null}
       {selected.type === "message" ? <ButtonEditor rows={rowsFromNode(selected)} onChange={(rows) => updateNode(selected.id, withButtonRows(selected, rows))} /> : null}
-      {selected.type === "condition" ? <><JsonField key={`${selected.id}:branches`} label="branches" value={selected.branches || []} onChange={(branches) => updateNode(selected.id, { branches })} /><TextField label="default" value={selected.default} onChange={(value) => updateNode(selected.id, { default: value })} /></> : null}
+      {selected.type === "condition" ? <ConditionEditor node={selected} nodes={definition.nodes || []} onChange={(node) => updateNode(selected.id, node)} /> : null}
       {selected.type === "action" ? <JsonField key={`${selected.id}:params`} label="params" value={selected.params || {}} onChange={(params) => updateNode(selected.id, { params })} /> : null}
       <button type="button" className="danger-button" onClick={() => deleteNode(selected.id)}>Delete node</button>
       <details><summary>Flow JSON</summary><pre>{JSON.stringify(definition, null, 2)}</pre></details>
@@ -354,7 +386,7 @@ function BotFlowEditor({ data }) {
           <MiniMap pannable zoomable nodeStrokeWidth={3} />
         </ReactFlow>
       </div>
-      <Inspector definition={serializeDefinition(definition, nodes)} selected={selected} actions={data.actions || []} updateNode={updateNode} deleteNode={deleteNode} setStart={(id) => sync({ ...definition, start_node_id: id }, id)} focusTarget={focusTarget} />
+      <Inspector definition={serializeDefinition(definition, nodes)} selected={selected} actions={data.actions || []} updateNode={updateNode} deleteNode={deleteNode} />
     </div>
   )
 }

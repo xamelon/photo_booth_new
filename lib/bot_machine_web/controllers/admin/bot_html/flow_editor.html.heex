@@ -2,13 +2,14 @@
   <div class="page-header">
     <div>
       <a class="back-link" href={~p"/admin/bot/flows"}>← Flows</a>
-      <h1>Edit {@version.bot_flow.name} v{@version.version}</h1>
+      <h1>Edit {@version.bot_flow.name}</h1>
       <p class="page-subtitle">
-        Сохраняет новую draft version. Custom actions выбираются из registry.
+        Сохраняет текущий flow. Custom actions выбираются из registry.
       </p>
     </div>
     <div class="page-actions">
       <a class="secondary-button" href={~p"/admin/bot/flows/#{@version.id}/view"}>View</a>
+      <button class="flow-editor-save" type="submit" form="flow-editor-form">Save</button>
     </div>
   </div>
 
@@ -23,7 +24,6 @@
     <form id="flow-editor-form" method="post" action={~p"/admin/bot/flows/#{@version.id}/edit"}>
       <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
       <textarea id="flow-editor-definition" name="definition" hidden></textarea>
-      <button id="flow-editor-save" class="flow-editor-save" type="submit">Save new version</button>
     </form>
     <div id="flow-editor" class="flow-editor"></div>
     <script type="application/json" id="flow-editor-data">

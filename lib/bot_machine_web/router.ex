@@ -33,6 +33,8 @@ defmodule BotMachineWeb.Router do
     pipe_through [:browser, :admin]
 
     get "/bot", BotController, :dashboard
+    get "/bot/users", BotController, :users
+    get "/bot/users/:user_id", BotController, :user_detail
     get "/bot/sessions", BotController, :sessions
     get "/bot/inbox", BotController, :inbox
     get "/bot/outbox", BotController, :outbox
