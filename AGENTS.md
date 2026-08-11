@@ -38,6 +38,8 @@ not the example app directly.
 
 The current live flow is stored in DB. Change it through the admin UI or agent API, not by editing seed Elixir code.
 
+Flow shape is documented in `docs/flow-definition.md`. Elixir types live in `lib/bot_machine/bot_core/types.ex`.
+
 Agent API requires an admin browser session:
 
 ```text
