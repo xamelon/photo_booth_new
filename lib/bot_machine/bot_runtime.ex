@@ -160,7 +160,7 @@ defmodule BotMachine.BotRuntime do
   end
 
   def validate_flow_definition(definition),
-    do: Validator.validate(definition, BotMachine.ExampleBot.registry())
+    do: Validator.validate(definition, BotMachine.BotApp.registry())
 
   def save_flow_definition(%BotFlowVersion{} = version, definition) do
     issues = validate_flow_definition(definition)
@@ -349,7 +349,7 @@ defmodule BotMachine.BotRuntime do
         Runner.run(
           version.definition,
           input,
-          BotMachine.ExampleBot.registry(),
+          BotMachine.BotApp.registry(),
           session && to_core_session(session),
           trigger && to_core_trigger(trigger)
         )

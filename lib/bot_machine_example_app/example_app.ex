@@ -1,4 +1,4 @@
-defmodule BotMachine.ExampleBot do
+defmodule BotMachineExampleApp do
   alias BotMachine.BotCore.Registry
 
   def registry do
@@ -41,10 +41,11 @@ defmodule BotMachine.ExampleBot do
           "type" => "message",
           "text" => "Привет. Я demo bot-machine 🤖\nСоберём мини-профиль?",
           "keyboard_mode" => "reply",
-          "buttons_per_row" => 2,
-          "buttons" => [
-            %{"label" => "Погнали", "to" => "ask_name"},
-            %{"label" => "Что умеешь?", "to" => "help"}
+          "button_rows" => [
+            [
+              %{"label" => "Погнали", "payload" => "start_profile", "to" => "ask_name"},
+              %{"label" => "Что умеешь?", "payload" => "help", "to" => "help"}
+            ]
           ]
         },
         %{
@@ -72,10 +73,11 @@ defmodule BotMachine.ExampleBot do
           "type" => "message",
           "text" => "{{greeting}}. Что сейчас ближе?",
           "keyboard_mode" => "reply",
-          "buttons_per_row" => 2,
-          "buttons" => [
-            %{"label" => "Хочу пиццу 🍕", "to" => "save_hungry"},
-            %{"label" => "Просто смотрю 👀", "to" => "save_curious"}
+          "button_rows" => [
+            [
+              %{"label" => "Хочу пиццу 🍕", "payload" => "hungry", "to" => "save_hungry"},
+              %{"label" => "Просто смотрю 👀", "payload" => "curious", "to" => "save_curious"}
+            ]
           ]
         },
         %{

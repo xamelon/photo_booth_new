@@ -181,21 +181,27 @@ defmodule BotMachine.BotRuntime.Channels.VK do
   defp keyboard([], _mode, _per_row), do: nil
 
   defp keyboard(button_rows, mode, per_row) do
-    rows = if List.first(button_rows) |> is_list(), do: button_rows, else: Enum.chunk_every(button_rows, per_row |> parse_int(3) |> min(5) |> max(1))
+    rows =
+      if List.first(button_rows) |> is_list(),
+        do: button_rows,
+        else: Enum.chunk_every(button_rows, per_row |> parse_int(3) |> min(5) |> max(1))
 
     %{
       one_time: false,
       inline: mode != "reply",
       buttons:
         Enum.map(rows, fn row ->
-          Enum.map(row, &%{
-            action: %{
-              type: "text",
-              label: &1["label"],
-              payload: wrap_payload(to_string(&1["payload"] || &1["label"]))
-            },
-            color: "primary"
-          })
+          Enum.map(
+            row,
+            &%{
+              action: %{
+                type: "text",
+                label: &1["label"],
+                payload: wrap_payload(to_string(&1["payload"] || &1["label"]))
+              },
+              color: "primary"
+            }
+          )
         end)
     }
     |> Jason.encode!()

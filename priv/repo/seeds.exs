@@ -23,7 +23,7 @@ flow =
 
 Repo.delete_all(from t in BotTrigger, where: t.bot_flow_id == ^flow.id and t.name == "Start")
 
-demo_flow = BotMachine.ExampleBot.flow()
+demo_flow = BotMachine.BotApp.flow()
 
 unless Repo.get_by(BotFlowVersion, bot_flow_id: flow.id, version: demo_flow["version"]) do
   Repo.insert!(%BotFlowVersion{

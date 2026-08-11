@@ -94,7 +94,7 @@ defmodule BotMachineWeb.Admin.AgentController do
   end
 
   defp actions do
-    BotMachine.ExampleBot.registry()
+    BotMachine.BotApp.registry()
     |> Registry.actions()
   end
 

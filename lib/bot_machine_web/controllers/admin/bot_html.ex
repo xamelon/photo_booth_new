@@ -14,16 +14,45 @@ defmodule BotMachineWeb.Admin.BotHTML do
       <aside class="admin-sidebar">
         <strong class="admin-brand">Bot Machine</strong>
         <nav>
+          <.admin_link href={~p"/admin/app"} icon="hero-briefcase-mini" current_path={@current_path}>App</.admin_link>
           <.admin_link href={~p"/admin/bot"} icon="hero-squares-2x2-mini" current_path={@current_path}>Dashboard</.admin_link>
           <.admin_link href={~p"/admin/bot/users"} icon="hero-users-mini" current_path={@current_path}>Users</.admin_link>
-          <.admin_link href={~p"/admin/bot/sessions"} icon="hero-circle-stack-mini" current_path={@current_path}>Sessions</.admin_link>
-          <.admin_link href={~p"/admin/bot/inbox"} icon="hero-inbox-arrow-down-mini" current_path={@current_path}>Inbox</.admin_link>
-          <.admin_link href={~p"/admin/bot/outbox"} icon="hero-paper-airplane-mini" current_path={@current_path}>Outbox</.admin_link>
-          <.admin_link href={~p"/admin/bot/events"} icon="hero-clock-mini" current_path={@current_path}>Events</.admin_link>
+          <.admin_link
+            href={~p"/admin/bot/sessions"}
+            icon="hero-circle-stack-mini"
+            current_path={@current_path}
+          >Sessions</.admin_link>
+          <.admin_link
+            href={~p"/admin/bot/inbox"}
+            icon="hero-inbox-arrow-down-mini"
+            current_path={@current_path}
+          >Inbox</.admin_link>
+          <.admin_link
+            href={~p"/admin/bot/outbox"}
+            icon="hero-paper-airplane-mini"
+            current_path={@current_path}
+          >Outbox</.admin_link>
+          <.admin_link
+            href={~p"/admin/bot/events"}
+            icon="hero-clock-mini"
+            current_path={@current_path}
+          >Events</.admin_link>
           <.admin_link href={~p"/admin/bot/flows"} icon="hero-share-mini" current_path={@current_path}>Flows</.admin_link>
-          <.admin_link href={~p"/admin/bot/triggers"} icon="hero-bolt-mini" current_path={@current_path}>Triggers</.admin_link>
-          <.admin_link href={~p"/admin/bot/channels"} icon="hero-link-mini" current_path={@current_path}>Channels</.admin_link>
-          <.admin_link href={~p"/admin/bot/sandbox"} icon="hero-chat-bubble-left-right-mini" current_path={@current_path}>Sandbox</.admin_link>
+          <.admin_link
+            href={~p"/admin/bot/triggers"}
+            icon="hero-bolt-mini"
+            current_path={@current_path}
+          >Triggers</.admin_link>
+          <.admin_link
+            href={~p"/admin/bot/channels"}
+            icon="hero-link-mini"
+            current_path={@current_path}
+          >Channels</.admin_link>
+          <.admin_link
+            href={~p"/admin/bot/sandbox"}
+            icon="hero-chat-bubble-left-right-mini"
+            current_path={@current_path}
+          >Sandbox</.admin_link>
         </nav>
         <div class="admin-sidebar-footer">
           <span>{@current_admin && @current_admin.email}</span>
@@ -47,7 +76,10 @@ defmodule BotMachineWeb.Admin.BotHTML do
 
   def admin_link(assigns) do
     ~H"""
-    <a href={@href} class={active_link_class(@href, @current_path)}><.icon name={@icon} class="admin-nav-icon" />{render_slot(@inner_block)}</a>
+    <a href={@href} class={active_link_class(@href, @current_path)}><.icon
+      name={@icon}
+      class="admin-nav-icon"
+    />{render_slot(@inner_block)}</a>
     """
   end
 

@@ -145,7 +145,7 @@ defmodule BotMachineWeb.Admin.BotController do
       editor_json:
         Jason.encode!(%{
           definition: version.definition,
-          actions: BotMachine.ExampleBot.registry() |> BotMachine.BotCore.Registry.actions()
+          actions: BotMachine.BotApp.registry() |> BotMachine.BotCore.Registry.actions()
         }),
       errors: errors
     )

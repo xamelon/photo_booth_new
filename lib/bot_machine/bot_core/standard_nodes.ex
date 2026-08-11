@@ -7,7 +7,9 @@ defmodule BotMachine.BotCore.StandardNodes do
     buttons =
       button_rows
       |> List.flatten()
-      |> Enum.map(&%{"label" => &1["label"], "payload" => &1["payload"] || &1["label"], "to" => &1["to"]})
+      |> Enum.map(
+        &%{"label" => &1["label"], "payload" => &1["payload"] || &1["label"], "to" => &1["to"]}
+      )
 
     %{
       outputs: [

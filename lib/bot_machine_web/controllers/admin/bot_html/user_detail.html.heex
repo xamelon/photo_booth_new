@@ -3,7 +3,7 @@
     <div>
       <a class="back-link" href={~p"/admin/bot/users"}>← Users</a>
       <h1>{@user.user.channel}:{@user.user.external_id}</h1>
-      <p class="page-subtitle">{(@user.user.display_name || "Bot user")}</p>
+      <p class="page-subtitle">{@user.user.display_name || "Bot user"}</p>
     </div>
     <.badge status={if @user.user.blocked_at, do: "blocked", else: "active"} />
   </div>
@@ -18,7 +18,11 @@
         <span>{@user.sessions |> length}</span>
       </div>
       <table>
-        <thead><tr><th>Flow</th><th>Node</th><th>State</th><th>Updated</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Flow</th><th>Node</th><th>State</th><th>Updated</th>
+          </tr>
+        </thead>
         <tbody>
           <tr :for={session <- @user.sessions}>
             <td><code>{session.flow_id} v{session.flow_version}</code></td>
@@ -38,7 +42,8 @@
           <p>Session memory used by messages, actions and conditions.</p>
         </div>
       </div>
-      <% active = Enum.find(@user.sessions, &is_nil(&1.completed_at)) || List.first(@user.sessions) %>
+      <% active =
+        Enum.find(@user.sessions, &is_nil(&1.completed_at)) || List.first(@user.sessions) %>
       <pre class="json-block"><code>{json(active && active.context)}</code></pre>
     </section>
   </div>
@@ -53,7 +58,11 @@
         <span>{@user.inbox |> length}</span>
       </div>
       <table>
-        <thead><tr><th>Status</th><th>Payload</th><th>At</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Status</th><th>Payload</th><th>At</th>
+          </tr>
+        </thead>
         <tbody>
           <tr :for={event <- @user.inbox}>
             <td><.badge status={event.status} /></td>
@@ -74,7 +83,11 @@
         <span>{@user.outbox |> length}</span>
       </div>
       <table>
-        <thead><tr><th>Status</th><th>Payload</th><th>At</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Status</th><th>Payload</th><th>At</th>
+          </tr>
+        </thead>
         <tbody>
           <tr :for={message <- @user.outbox}>
             <td><.badge status={message.status} /></td>
