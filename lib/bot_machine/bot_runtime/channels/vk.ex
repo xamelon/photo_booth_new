@@ -95,7 +95,7 @@ defmodule BotMachine.BotRuntime.Channels.VK do
 
   defp resolve_attachment(%{"url" => url, "type" => "photo"}, peer_id, token)
        when is_binary(url) and url != "" do
-    with {:ok, upload_url} <- get_photo_upload_url(peer_id, token),
+    with {:ok, upload_url} <- get_message_photo_upload_url(%{"peer_id" => peer_id}, token),
          {:ok, image} <- fetch_image(url),
          {:ok, uploaded} <- upload_photo(upload_url, image),
          {:ok, ref} <- save_message_photo(uploaded, token) do
@@ -105,12 +105,10 @@ defmodule BotMachine.BotRuntime.Channels.VK do
 
   defp resolve_attachment(_attachment, _peer_id, _token), do: {:ok, nil}
 
-  defp get_photo_upload_url(peer_id, token) do
-    case post_vk(
-           "photos.getMessagesUploadServer",
-           %{"peer_id" => peer_id, "v" => @api_version},
-           token
-         ) do
+  def get_message_photo_upload_url(params, token) do
+    params = Map.put(params, "v", @api_version)
+
+    case post_vk("photos.getMessagesUploadServer", params, token) do
       {:ok, %{"response" => %{"upload_url" => url}}} -> {:ok, url}
       {:ok, %{"error" => error}} -> {:error, error["error_msg"] || "VK upload server error"}
       {:error, reason} -> {:error, reason}
@@ -132,12 +130,24 @@ defmodule BotMachine.BotRuntime.Channels.VK do
     end
   end
 
-  defp upload_photo(upload_url, {filename, body, content_type}) do
+  def upload_photo(upload_url, {filename, body, content_type}) do
     case Req.post(upload_url,
-           form_multipart: [photo: {body, filename: filename, content_type: content_type}]
+           form_multipart: [{"photo", {body, filename: filename, content_type: content_type}}]
          ) do
       {:ok, %{status: status, body: response}} when status in 200..299 ->
-        if is_map(response), do: {:ok, response}, else: Jason.decode(response)
+        response = if is_map(response), do: {:ok, response}, else: Jason.decode(response)
+
+        case response do
+          {:ok, %{"server" => _, "photo" => photo, "hash" => _} = uploaded}
+          when photo not in [nil, "", "[]"] ->
+            {:ok, uploaded}
+
+          {:ok, invalid} ->
+            {:error, "VK photo upload returned invalid payload: #{inspect(invalid)}"}
+
+          error ->
+            error
+        end
 
       {:ok, %{status: status, body: response}} ->
         {:error, "VK photo upload failed with HTTP #{status}: #{inspect(response)}"}
@@ -147,7 +157,7 @@ defmodule BotMachine.BotRuntime.Channels.VK do
     end
   end
 
-  defp save_message_photo(%{"server" => server, "photo" => photo, "hash" => hash}, token) do
+  def save_message_photo(%{"server" => server, "photo" => photo, "hash" => hash}, token) do
     case post_vk(
            "photos.saveMessagesPhoto",
            %{"server" => server, "photo" => photo, "hash" => hash, "v" => @api_version},
@@ -160,7 +170,7 @@ defmodule BotMachine.BotRuntime.Channels.VK do
     end
   end
 
-  defp save_message_photo(_uploaded, _token), do: {:error, "VK upload returned invalid response"}
+  def save_message_photo(_uploaded, _token), do: {:error, "VK upload returned invalid response"}
 
   defp post_vk(method, params, token) do
     case Req.post("https://api.vk.ru/method/#{method}",

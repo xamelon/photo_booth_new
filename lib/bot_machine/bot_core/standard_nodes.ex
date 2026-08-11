@@ -20,6 +20,7 @@ defmodule BotMachine.BotCore.StandardNodes do
           "text" => Renderer.render(node["text"] || "", session.context),
           "buttons" => buttons,
           "button_rows" => button_rows,
+          "attachments" => attachments(node, session.context),
           "keyboard_mode" => keyboard_mode(node),
           "buttons_per_row" => Map.get(node, "buttons_per_row", 3)
         }
@@ -86,6 +87,24 @@ defmodule BotMachine.BotCore.StandardNodes do
   end
 
   def end_enter(_ctx, _node), do: %{completed: true}
+
+  defp attachments(node, context) do
+    node
+    |> Map.get("attachments", [])
+    |> Enum.filter(&(&1["type"] == "photo"))
+    |> Enum.map(fn attachment ->
+      %{
+        "type" => "photo",
+        "ref" => render_optional(attachment["ref"], context),
+        "url" => render_optional(attachment["url"], context)
+      }
+      |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
+      |> Map.new()
+    end)
+  end
+
+  defp render_optional(nil, _context), do: nil
+  defp render_optional(value, context), do: Renderer.render(to_string(value), context)
 
   defp button_rows(%{"button_rows" => rows}) when is_list(rows), do: rows
   defp button_rows(%{"buttons" => buttons}) when is_list(buttons), do: [buttons]

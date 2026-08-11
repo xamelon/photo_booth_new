@@ -14,9 +14,15 @@ defmodule BotMachineWeb.Admin.BotHTML do
       <aside class="admin-sidebar">
         <strong class="admin-brand">Bot Machine</strong>
         <nav>
+          <div class="admin-nav-group-label">Project</div>
           <.admin_link href={~p"/admin/app"} icon="hero-briefcase-mini" current_path={@current_path}>App</.admin_link>
+
+          <div class="admin-nav-group-label">Bot</div>
           <.admin_link href={~p"/admin/bot"} icon="hero-squares-2x2-mini" current_path={@current_path}>Dashboard</.admin_link>
+          <.admin_link href={~p"/admin/bot/flows"} icon="hero-share-mini" current_path={@current_path}>Flows</.admin_link>
           <.admin_link href={~p"/admin/bot/users"} icon="hero-users-mini" current_path={@current_path}>Users</.admin_link>
+
+          <div class="admin-nav-group-label">Activity</div>
           <.admin_link
             href={~p"/admin/bot/sessions"}
             icon="hero-circle-stack-mini"
@@ -37,7 +43,8 @@ defmodule BotMachineWeb.Admin.BotHTML do
             icon="hero-clock-mini"
             current_path={@current_path}
           >Events</.admin_link>
-          <.admin_link href={~p"/admin/bot/flows"} icon="hero-share-mini" current_path={@current_path}>Flows</.admin_link>
+
+          <div class="admin-nav-group-label">Setup</div>
           <.admin_link
             href={~p"/admin/bot/triggers"}
             icon="hero-bolt-mini"
@@ -48,6 +55,8 @@ defmodule BotMachineWeb.Admin.BotHTML do
             icon="hero-link-mini"
             current_path={@current_path}
           >Channels</.admin_link>
+
+          <div class="admin-nav-group-label">Test</div>
           <.admin_link
             href={~p"/admin/bot/sandbox"}
             icon="hero-chat-bubble-left-right-mini"
@@ -84,6 +93,7 @@ defmodule BotMachineWeb.Admin.BotHTML do
   end
 
   defp active_link_class("/admin/bot", "/admin/bot"), do: "is-active"
+  defp active_link_class("/admin/bot", _path), do: nil
 
   defp active_link_class("/admin/bot/flows", path) when is_binary(path),
     do: if(String.starts_with?(path, "/admin/bot/flows"), do: "is-active")

@@ -29,6 +29,19 @@ body {
   margin-bottom: 12px;
 }
 
+.admin-nav-group-label {
+  margin: 16px 8px 5px;
+  color: rgb(55 53 47 / 0.42);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-nav-group-label:first-child {
+  margin-top: 4px;
+}
+
 .admin-sidebar a,
 .link-button {
   display: flex;
@@ -879,6 +892,36 @@ button {
   margin-bottom: 0.35rem;
 }
 
+.editor-inspector-title {
+  margin: -2px 0 2px;
+  border-bottom: 1px solid rgb(55 53 47 / 0.1);
+  padding-bottom: 14px;
+}
+
+.editor-inspector-title div {
+  min-width: 0;
+}
+
+.editor-inspector-title span {
+  display: block;
+  margin-bottom: 3px;
+  color: rgb(55 53 47 / 0.5);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.editor-inspector-title strong {
+  display: block;
+  overflow: hidden;
+  color: rgb(55 53 47 / 0.92);
+  font-size: 18px;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .flow-inspector-close {
   width: 1.5rem;
   height: 1.5rem;
@@ -1011,14 +1054,57 @@ button {
   overflow-x: hidden;
   display: grid;
   align-content: start;
-  gap: 12px;
-  padding: 18px;
+  gap: 10px;
+  padding: 16px;
   border-left: 1px solid rgb(55 53 47 / 0.1);
   background: #fff;
 }
 
 .flow-editor-inspector.empty {
   color: rgb(55 53 47 / 0.55);
+}
+
+.inspector-section {
+  display: grid;
+  gap: 8px;
+  border-top: 1px solid rgb(55 53 47 / 0.1);
+  padding-top: 10px;
+}
+
+.editor-inspector-title + .inspector-section {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.inspector-section-heading {
+  display: grid;
+  gap: 1px;
+}
+
+.inspector-section-heading strong {
+  color: rgb(55 53 47 / 0.72);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.inspector-section-heading span {
+  color: rgb(55 53 47 / 0.48);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.inspector-two-up {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 116px;
+  gap: 8px;
+}
+
+.inspector-footer-actions {
+  display: grid;
+  padding-top: 2px;
 }
 
 .flow-editor-inspector label {
@@ -1325,4 +1411,84 @@ button {
   padding: 12px;
   font-size: 12px;
   white-space: pre-wrap;
+}
+
+.attachment-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.field-title {
+  color: rgb(55 53 47 / 0.62);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.attachment-list {
+  display: grid;
+  gap: 8px;
+}
+
+.attachment-item {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid rgb(55 53 47 / 0.1);
+  border-radius: 8px;
+  background: #fff;
+  padding: 6px;
+}
+
+.attachment-item img,
+.attachment-thumb-empty {
+  width: 54px;
+  height: 42px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: rgb(55 53 47 / 0.06);
+}
+
+.attachment-thumb-empty {
+  display: grid;
+  place-items: center;
+  color: rgb(55 53 47 / 0.45);
+  font-size: 11px;
+}
+
+.attachment-item code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-empty {
+  margin: 0;
+  color: rgb(55 53 47 / 0.52);
+  font-size: 12px;
+}
+
+.attachment-upload {
+  display: inline-flex;
+  width: fit-content;
+  cursor: pointer;
+}
+
+.attachment-upload input {
+  display: none;
+}
+
+.attachment-upload span {
+  border: 1px solid rgb(55 53 47 / 0.14);
+  border-radius: 8px;
+  background: #fff;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.field-error {
+  color: #b42318;
+  font-size: 12px;
 }

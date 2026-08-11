@@ -30,6 +30,7 @@ bot_machine-*.tar
 
 # Ignore digested assets cache.
 /priv/static/cache_manifest.json
+/storage/uploads/
 
 # In case you use Node.js/npm, you want to ignore these.
 npm-debug.log

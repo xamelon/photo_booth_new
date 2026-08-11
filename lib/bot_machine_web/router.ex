@@ -20,7 +20,7 @@ defmodule BotMachineWeb.Router do
   end
 
   pipeline :admin_api do
-    plug :accepts, ["json"]
+    plug :accepts, ["json", "multipart"]
     plug :fetch_session
     plug :put_secure_browser_headers
     plug BotMachineWeb.AdminAuth, :fetch_current_admin
@@ -31,6 +31,7 @@ defmodule BotMachineWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    get "/uploads/bot/:filename", UploadController, :bot
     get "/login", SessionController, :new
     post "/login", SessionController, :create
     delete "/logout", SessionController, :delete
@@ -68,6 +69,7 @@ defmodule BotMachineWeb.Router do
     get "/flows/:version_id", AgentController, :flow
     post "/flows/:version_id/validate", AgentController, :validate_flow
     post "/flows/:version_id/save", AgentController, :save_flow
+    post "/media/vk-photo", AgentController, :upload_vk_photo
   end
 
   scope "/webhooks", BotMachineWeb do

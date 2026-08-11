@@ -164,11 +164,11 @@ const EditorNode = memo(function EditorNode({ data }) {
 })
 
 function TextField({ label, value, onChange, placeholder }) {
-  return <label><span>{label}</span><input value={value || ""} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} /></label>
+  return <label>{label ? <span>{label}</span> : null}<input aria-label={label || placeholder} value={value || ""} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} /></label>
 }
 
 function TextAreaField({ label, value, onChange, placeholder }) {
-  return <label><span>{label}</span><textarea value={value || ""} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} /></label>
+  return <label>{label ? <span>{label}</span> : null}<textarea aria-label={label || placeholder} value={value || ""} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} /></label>
 }
 
 function ButtonEditor({ rows, onChange }) {
@@ -197,7 +197,7 @@ function ButtonEditor({ rows, onChange }) {
 
   return (
     <div className="button-editor">
-      <div className="button-editor-header"><span>buttons</span><button type="button" className="secondary-button" onClick={() => onChange([...rows, [cleanButton({ label: "New button", to: "" })]])}>+ button</button></div>
+      <div className="button-editor-header"><span>Rows</span><button type="button" className="secondary-button" onClick={() => onChange([...rows, [cleanButton({ label: "New button", to: "" })]])}>+ button</button></div>
       {rows.length ? <DndContext collisionDetection={closestCenter} onDragStart={(event) => { setActiveId(event.active.id); setOverId(event.active.id) }} onDragOver={(event) => setOverId(event.over?.id || null)} onDragCancel={() => { setActiveId(null); setOverId(null) }} onDragEnd={finishDrag}>{rows.map((row, rowIndex) => <ButtonRow key={rowIndex} row={row} rowIndex={rowIndex} activeId={activeId} overId={overId} update={update} remove={(index) => onChange(removeButton(rows, rowIndex, index))} />)}<DropRow id={`row:${rows.length}`} label="drop here for new row" showPlaceholder={String(overId) === `row:${rows.length}`} /><DragOverlay>{activeButton ? <ButtonPreview button={activeButton} /> : null}</DragOverlay></DndContext> : null}
       {rows.length === 0 ? <p>No buttons yet.</p> : null}
     </div>
@@ -271,24 +271,113 @@ function JsonField({ label, value, onChange }) {
   )
 }
 
+function InspectorSection({ title, hint, children }) {
+  return <section className="inspector-section">
+    <div className="inspector-section-heading">
+      <strong>{title}</strong>
+      {hint ? <span>{hint}</span> : null}
+    </div>
+    {children}
+  </section>
+}
+
+function AttachmentEditor({ attachments = [], onChange }) {
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState("")
+
+  async function upload(file) {
+    if (!file) return
+    setUploading(true)
+    setError("")
+    try {
+      const form = new FormData()
+      form.append("image", file)
+      const response = await fetch("/admin/api/agent/media/vk-photo", { method: "POST", body: form })
+      const body = await response.json()
+      if (!response.ok || !body.ok) throw new Error(body.error || "Upload failed")
+      onChange([...(attachments || []), body.attachment])
+    } catch (error) {
+      setError(error.message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="attachment-editor">
+      {(attachments || []).length ? <div className="attachment-list">
+        {attachments.map((attachment, index) => <div className="attachment-item" key={`${attachment.ref || attachment.url}:${index}`}>
+          {attachment.url ? <img src={attachment.url} alt="" /> : <div className="attachment-thumb-empty">photo</div>}
+          <div><code>{attachment.ref || attachment.url}</code></div>
+          <button type="button" className="muted-delete-button" onClick={() => onChange(attachments.filter((_, itemIndex) => itemIndex !== index))}>remove</button>
+        </div>)}
+      </div> : <p className="attachment-empty">No images attached.</p>}
+      <label className="attachment-upload">
+        <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={uploading} onChange={(event) => upload(event.target.files?.[0])} />
+        <span>{uploading ? "Uploading…" : "Upload VK photo"}</span>
+      </label>
+      {error ? <em className="field-error">{error}</em> : null}
+    </div>
+  )
+}
+
+function nodeTypeLabel(type) {
+  return typeLabels[type] || type || "node"
+}
+
 function Inspector({ definition, selected, actions, updateNode, deleteNode }) {
   if (!selected) return <aside className="flow-editor-inspector empty"><h3>Select a node</h3><p>Drag nodes, connect handles, double-click an edge to delete it.</p></aside>
 
   return (
     <aside className="flow-editor-inspector">
-      <div className="flow-inspector-header">
-        <strong>{selected.id}</strong>
+      <div className="flow-inspector-header editor-inspector-title">
+        <div>
+          <span>{nodeTypeLabel(selected.type)}</span>
+          <strong>{selected.id}</strong>
+        </div>
       </div>
-      <TextField label="id" value={selected.id} onChange={(id) => updateNode(selected.id, { id })} />
-      <label><span>type</span><select value={selected.type || "message"} onChange={(e) => updateNode(selected.id, { type: e.target.value })}>{Object.keys(typeLabels).map((type) => <option key={type}>{type}</option>)}</select></label>
-      {selected.type === "message" ? <><TextAreaField label="text" value={selected.text} onChange={(text) => updateNode(selected.id, { text })} /><label><span>VK keyboard</span><select value={selected.keyboard_mode || "inline"} onChange={(e) => updateNode(selected.id, { keyboard_mode: e.target.value })}><option value="inline">inline</option><option value="reply">reply</option></select></label></> : null}
-      {selected.type === "input" ? <><TextField label="prompt" value={selected.prompt} onChange={(prompt) => updateNode(selected.id, { prompt })} /><TextField label="input_key" value={selected.input_key} onChange={(input_key) => updateNode(selected.id, { input_key })} /></> : null}
-      {selected.type === "action" ? <label><span>action</span><select value={selected.action || ""} onChange={(e) => updateNode(selected.id, { action: e.target.value })}><option value="">choose action</option>{actions.map((action) => <option key={action}>{action}</option>)}</select></label> : null}
-      {selected.type !== "end" && selected.type !== "condition" ? <TextField label="next" value={selected.next} placeholder="node id" onChange={(next) => updateNode(selected.id, { next })} /> : null}
-      {selected.type === "message" ? <ButtonEditor rows={rowsFromNode(selected)} onChange={(rows) => updateNode(selected.id, withButtonRows(selected, rows))} /> : null}
-      {selected.type === "condition" ? <ConditionEditor node={selected} nodes={definition.nodes || []} onChange={(node) => updateNode(selected.id, node)} /> : null}
-      {selected.type === "action" ? <JsonField key={`${selected.id}:params`} label="params" value={selected.params || {}} onChange={(params) => updateNode(selected.id, { params })} /> : null}
-      <button type="button" className="danger-button" onClick={() => deleteNode(selected.id)}>Delete node</button>
+
+      <InspectorSection title="Identity">
+        <div className="inspector-two-up">
+          <TextField label="" placeholder="node_id" value={selected.id} onChange={(id) => updateNode(selected.id, { id })} />
+          <label><select aria-label="type" value={selected.type || "message"} onChange={(e) => updateNode(selected.id, { type: e.target.value })}>{Object.keys(typeLabels).map((type) => <option key={type}>{type}</option>)}</select></label>
+        </div>
+      </InspectorSection>
+
+      {selected.type === "message" ? <InspectorSection title="Message">
+        <TextAreaField label="" placeholder="Message text, supports {{context}}" value={selected.text} onChange={(text) => updateNode(selected.id, { text })} />
+        <label><select aria-label="VK keyboard" value={selected.keyboard_mode || "inline"} onChange={(e) => updateNode(selected.id, { keyboard_mode: e.target.value })}><option value="inline">inline keyboard</option><option value="reply">reply keyboard</option></select></label>
+      </InspectorSection> : null}
+
+      {selected.type === "input" ? <InspectorSection title="Input">
+        <TextField label="" placeholder="Prompt" value={selected.prompt} onChange={(prompt) => updateNode(selected.id, { prompt })} />
+        <TextField label="" placeholder="context_key" value={selected.input_key} onChange={(input_key) => updateNode(selected.id, { input_key })} />
+      </InspectorSection> : null}
+
+      {selected.type === "action" ? <InspectorSection title="Action">
+        <label><select aria-label="action" value={selected.action || ""} onChange={(e) => updateNode(selected.id, { action: e.target.value })}><option value="">choose action</option>{actions.map((action) => <option key={action}>{action}</option>)}</select></label>
+        <JsonField key={`${selected.id}:params`} label="params" value={selected.params || {}} onChange={(params) => updateNode(selected.id, { params })} />
+      </InspectorSection> : null}
+
+      {selected.type === "message" ? <InspectorSection title="Media">
+        <AttachmentEditor attachments={selected.attachments || []} onChange={(attachments) => updateNode(selected.id, { attachments })} />
+      </InspectorSection> : null}
+
+      {selected.type === "message" ? <InspectorSection title="Buttons">
+        <ButtonEditor rows={rowsFromNode(selected)} onChange={(rows) => updateNode(selected.id, withButtonRows(selected, rows))} />
+      </InspectorSection> : null}
+
+      {selected.type !== "end" && selected.type !== "condition" ? <InspectorSection title="Routing">
+        <TextField label="" value={selected.next} placeholder="next node id" onChange={(next) => updateNode(selected.id, { next })} />
+      </InspectorSection> : null}
+
+      {selected.type === "condition" ? <InspectorSection title="Branches">
+        <ConditionEditor node={selected} nodes={definition.nodes || []} onChange={(node) => updateNode(selected.id, node)} />
+      </InspectorSection> : null}
+
+      <div className="inspector-footer-actions">
+        <button type="button" className="danger-button" onClick={() => deleteNode(selected.id)}>Delete node</button>
+      </div>
       <details><summary>Flow JSON</summary><pre>{JSON.stringify(definition, null, 2)}</pre></details>
     </aside>
   )

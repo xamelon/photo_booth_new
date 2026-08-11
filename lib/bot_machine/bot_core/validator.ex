@@ -25,6 +25,7 @@ defmodule BotMachine.BotCore.Validator do
     Enum.reduce(nodes, issues, fn node, acc ->
       acc
       |> validate_action(node, registry)
+      |> validate_attachments(node)
       |> validate_targets(node, ids)
     end)
   end
@@ -36,6 +37,41 @@ defmodule BotMachine.BotCore.Validator do
   end
 
   defp validate_action(issues, _node, _registry), do: issues
+
+  defp validate_attachments(issues, %{
+         "type" => "message",
+         "attachments" => attachments,
+         "id" => id
+       })
+       when is_list(attachments) do
+    Enum.with_index(attachments)
+    |> Enum.reduce(issues, fn {attachment, index}, acc ->
+      cond do
+        attachment["type"] != "photo" ->
+          [
+            %{
+              path: "nodes.#{id}.attachments.#{index}.type",
+              message: "only photo attachments are supported"
+            }
+            | acc
+          ]
+
+        attachment["ref"] in [nil, ""] and attachment["url"] in [nil, ""] ->
+          [
+            %{
+              path: "nodes.#{id}.attachments.#{index}",
+              message: "photo attachment requires ref or url"
+            }
+            | acc
+          ]
+
+        true ->
+          acc
+      end
+    end)
+  end
+
+  defp validate_attachments(issues, _node), do: issues
 
   defp validate_targets(issues, node, ids) do
     targets =

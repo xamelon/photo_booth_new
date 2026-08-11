@@ -3,6 +3,7 @@ defmodule BotMachineWeb.Admin.AgentController do
 
   alias BotMachine.BotCore.Registry
   alias BotMachine.BotRuntime
+  alias BotMachine.BotRuntime.Channels.VKPhotoUpload
 
   plug :require_json_body when action in [:validate_flow, :save_flow]
 
@@ -68,6 +69,20 @@ defmodule BotMachineWeb.Admin.AgentController do
   end
 
   def save_flow(conn, _params), do: bad_request(conn, "definition is required")
+
+  def upload_vk_photo(conn, %{"image" => upload}) do
+    case VKPhotoUpload.upload(upload) do
+      {:ok, attachment} ->
+        json(conn, %{ok: true, attachment: attachment})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{ok: false, error: reason})
+    end
+  end
+
+  def upload_vk_photo(conn, _params), do: bad_request(conn, "image file is required")
 
   defp flow_payload(version) do
     %{
