@@ -9,6 +9,7 @@ defmodule Mix.Tasks.BotMachine.Materialize do
 
       mix bot_machine.materialize
       mix bot_machine.materialize PizzaBot pizza_bot ghcr.io/acme/pizza-bot
+      mix bot_machine.materialize PizzaBot pizza_bot ghcr.io/acme/pizza-bot git@github.com:acme/pizza-bot.git
 
   The task replaces:
 
@@ -22,7 +23,7 @@ defmodule Mix.Tasks.BotMachine.Materialize do
   def run(args) do
     Mix.shell().info("Materializing BotMachine template")
 
-    {app_module, app_dir, image_name} = input(args)
+    {app_module, app_dir, image_name, origin_url} = input(args)
     app_web_module = app_module <> "Web"
     app_dir_web = app_dir <> "_web"
 
@@ -34,28 +35,40 @@ defmodule Mix.Tasks.BotMachine.Materialize do
     configure_bot_app(app_module)
     maybe_copy_workflow()
     maybe_copy_env()
-    write_next_steps(app_module, app_dir, app_dir_web, image_name)
+    maybe_setup_git(origin_url)
+    write_next_steps(app_module, app_dir, app_dir_web, image_name, origin_url)
 
     Mix.shell().info("\nDone: #{app_module} lives in lib/#{app_dir} and lib/#{app_dir_web}")
     Mix.shell().info("Next: mix format && mix test")
   end
 
-  defp input([app_module, app_dir, image_name]), do: {app_module, app_dir, image_name}
+  defp input([app_module, app_dir, image_name]), do: {app_module, app_dir, image_name, nil}
+
+  defp input([app_module, app_dir, image_name, origin_url]),
+    do: {app_module, app_dir, image_name, origin_url}
 
   defp input([]) do
     app_module = prompt("App module", "PizzaBot")
     app_dir = prompt("App dir", Macro.underscore(app_module))
     image_name = prompt("GHCR image", "ghcr.io/YOUR_ORG/#{String.replace(app_dir, "_", "-")}")
-    {app_module, app_dir, image_name}
+    origin_url = prompt_optional("New bot git origin URL, blank to skip")
+    {app_module, app_dir, image_name, origin_url}
   end
 
   defp input(_args) do
-    Mix.raise("usage: mix bot_machine.materialize APP_MODULE APP_DIR IMAGE_NAME")
+    Mix.raise("usage: mix bot_machine.materialize APP_MODULE APP_DIR IMAGE_NAME [NEW_ORIGIN_URL]")
   end
 
   defp prompt(label, default) do
     case Mix.shell().prompt("#{label} [#{default}]:") |> String.trim() do
       "" -> default
+      value -> value
+    end
+  end
+
+  defp prompt_optional(label) do
+    case Mix.shell().prompt("#{label}:") |> String.trim() do
+      "" -> nil
       value -> value
     end
   end
@@ -184,7 +197,48 @@ defmodule Mix.Tasks.BotMachine.Materialize do
     end
   end
 
-  defp write_next_steps(app_module, app_dir, app_dir_web, image_name) do
+  defp maybe_setup_git(nil), do: :ok
+
+  defp maybe_setup_git(origin_url) do
+    if File.dir?(".git") do
+      remotes = git_lines(["remote"])
+
+      if "origin" in remotes and "template" not in remotes do
+        git!(["remote", "rename", "origin", "template"])
+        Mix.shell().info("Renamed git remote origin -> template")
+      end
+
+      remotes = git_lines(["remote"])
+
+      cond do
+        "origin" in remotes ->
+          git!(["remote", "set-url", "origin", origin_url])
+          Mix.shell().info("Updated git remote origin -> #{origin_url}")
+
+        true ->
+          git!(["remote", "add", "origin", origin_url])
+          Mix.shell().info("Added git remote origin -> #{origin_url}")
+      end
+    else
+      Mix.shell().info("No .git directory found; skipped git remote setup")
+    end
+  end
+
+  defp git_lines(args) do
+    case System.cmd("git", args, stderr_to_stdout: true) do
+      {out, 0} -> out |> String.split("\n", trim: true)
+      _ -> []
+    end
+  end
+
+  defp git!(args) do
+    case System.cmd("git", args, stderr_to_stdout: true) do
+      {_out, 0} -> :ok
+      {out, _} -> Mix.raise("git #{Enum.join(args, " ")} failed:\n#{out}")
+    end
+  end
+
+  defp write_next_steps(app_module, app_dir, app_dir_web, image_name, origin_url) do
     File.write!("NEXT_STEPS.md", """
     # Next steps
 
@@ -202,6 +256,20 @@ defmodule Mix.Tasks.BotMachine.Materialize do
     mix test
     ```
 
+    Git remotes:
+
+    #{git_next_steps(origin_url)}
+
+    Commit prefixes for future backports:
+
+    - `core:` generic template changes that may be cherry-picked back to the template
+    - `app:` project-specific bot/business changes, never backport
+    - `ops:` deploy/env/CI for this concrete project
+    - `docs:` documentation-only changes
+    - `mixed:` only when explicitly requested, do not backport directly
+
+    Keep `core:` and `app:` changes in separate commits. Backport only `core:` commits to the template.
+
     Edit your real bot flow/actions in:
 
     ```text
@@ -217,5 +285,34 @@ defmodule Mix.Tasks.BotMachine.Materialize do
     docker compose -f docker-compose.image.yml up -d app
     ```
     """)
+  end
+
+  defp git_next_steps(nil) do
+    """
+    If you cloned from the template, keep it as upstream:
+
+    ```bash
+    git remote rename origin template
+    git remote add origin <new-bot-repo-url>
+    git push -u origin main
+    ```
+    """
+  end
+
+  defp git_next_steps(origin_url) do
+    """
+    This task configured:
+
+    ```text
+    template = original template remote
+    origin   = #{origin_url}
+    ```
+
+    Push when ready:
+
+    ```bash
+    git push -u origin main
+    ```
+    """
   end
 end
