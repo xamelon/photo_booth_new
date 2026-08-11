@@ -1,6 +1,13 @@
 import Ecto.Query
 
-alias BotMachine.BotRuntime.{BotFlow, BotFlowVersion, BotTrigger}
+alias BotMachine.BotRuntime.{
+  BotChannelConnection,
+  BotFlow,
+  BotFlowConnection,
+  BotFlowVersion,
+  BotTrigger
+}
+
 alias BotMachine.Repo
 
 email = System.get_env("ADMIN_EMAIL") || "admin@example.com"
@@ -36,6 +43,30 @@ unless Repo.get_by(BotFlowVersion, bot_flow_id: flow.id, version: demo_flow["ver
 end
 
 for {name, channel} <- [{"Start echo", "echo"}, {"Start VK", "vk"}] do
+  connection =
+    Repo.get_by(BotChannelConnection, channel: channel) ||
+      Repo.insert!(%BotChannelConnection{
+        channel: channel,
+        name: "#{String.upcase(channel)} default",
+        external_id: if(channel == "echo", do: "sandbox"),
+        public_id: "conn_#{channel}",
+        status: "active",
+        credentials: %{},
+        config: %{}
+      })
+
+  Repo.get_by(BotFlowConnection,
+    bot_flow_id: flow.id,
+    bot_channel_connection_id: connection.id
+  ) ||
+    Repo.insert!(%BotFlowConnection{
+      bot_flow_id: flow.id,
+      bot_channel_connection_id: connection.id,
+      enabled: true,
+      priority: 0,
+      config: %{}
+    })
+
   attrs = %{
     bot_flow_id: flow.id,
     name: name,

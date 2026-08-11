@@ -3,6 +3,7 @@ defmodule BotMachine.BotRuntime.OutboxMessage do
   import Ecto.Changeset
 
   schema "bot_outbox_messages" do
+    belongs_to :bot_channel_connection, BotMachine.BotRuntime.BotChannelConnection
     field :channel, :string
     field :external_id, :string
     field :idempotency_key, :string
@@ -19,6 +20,7 @@ defmodule BotMachine.BotRuntime.OutboxMessage do
   def changeset(message, attrs),
     do:
       cast(message, attrs, [
+        :bot_channel_connection_id,
         :channel,
         :external_id,
         :idempotency_key,
@@ -30,6 +32,13 @@ defmodule BotMachine.BotRuntime.OutboxMessage do
         :sent_at,
         :external_message_id
       ])
-      |> validate_required([:channel, :external_id, :idempotency_key, :payload, :status])
+      |> validate_required([
+        :bot_channel_connection_id,
+        :channel,
+        :external_id,
+        :idempotency_key,
+        :payload,
+        :status
+      ])
       |> unique_constraint(:idempotency_key)
 end

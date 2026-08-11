@@ -3,6 +3,7 @@ defmodule BotMachine.BotRuntime.BotUser do
   import Ecto.Changeset
 
   schema "bot_users" do
+    belongs_to :bot_channel_connection, BotMachine.BotRuntime.BotChannelConnection
     field :channel, :string
     field :external_id, :string
     field :display_name, :string
@@ -13,7 +14,14 @@ defmodule BotMachine.BotRuntime.BotUser do
 
   def changeset(user, attrs),
     do:
-      cast(user, attrs, [:channel, :external_id, :display_name, :metadata, :blocked_at])
-      |> validate_required([:channel, :external_id])
-      |> unique_constraint([:channel, :external_id])
+      cast(user, attrs, [
+        :bot_channel_connection_id,
+        :channel,
+        :external_id,
+        :display_name,
+        :metadata,
+        :blocked_at
+      ])
+      |> validate_required([:bot_channel_connection_id, :channel, :external_id])
+      |> unique_constraint([:bot_channel_connection_id, :external_id])
 end

@@ -7,6 +7,7 @@ defmodule BotMachine.BotRuntime.BotFlow do
     field :name, :string
     field :status, :string, default: "draft"
     has_many :versions, BotMachine.BotRuntime.BotFlowVersion
+    has_many :flow_connections, BotMachine.BotRuntime.BotFlowConnection
     timestamps(type: :utc_datetime)
   end
 

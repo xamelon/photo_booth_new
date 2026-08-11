@@ -87,25 +87,44 @@ defmodule BotMachineWeb.Admin.BotController do
   def triggers(conn, _params),
     do: render(conn, :triggers, triggers: BotRuntime.list_triggers())
 
-  def channels(conn, _params),
-    do:
-      render(conn, :channels,
-        vk: BotMachine.BotRuntime.Credentials.get("vk"),
-        vk_callback_url: BotMachine.BotRuntime.Channels.VKProvisioning.callback_url()
-      )
+  def channels(conn, _params) do
+    matrix = BotRuntime.flow_connection_matrix()
 
-  def save_vk(conn, %{"vk" => attrs}) do
-    case BotMachine.BotRuntime.Credentials.put("vk", attrs) do
+    render(conn, :channels,
+      connections: matrix.connections,
+      flows: matrix.flows,
+      enabled_flows: matrix.enabled,
+      credential: &BotMachine.BotRuntime.Credentials.for_connection/1,
+      callback_url: &BotMachine.BotRuntime.Channels.VKProvisioning.callback_url/1
+    )
+  end
+
+  def create_vk(conn, %{"vk" => attrs}) do
+    case BotRuntime.create_vk_connection(attrs) do
+      {:ok, _} -> redirect(conn, to: ~p"/admin/bot/channels")
+      {:error, _} -> send_resp(conn, 422, "failed to create VK connection")
+    end
+  end
+
+  def save_vk(conn, %{"connection_id" => id, "vk" => attrs}) do
+    case BotRuntime.update_vk_connection(id, attrs) do
       {:ok, _} -> redirect(conn, to: ~p"/admin/bot/channels")
       {:error, _} -> send_resp(conn, 422, "failed to save credentials")
     end
   end
 
-  def provision_vk(conn, _params) do
-    case BotMachine.BotRuntime.Channels.VKProvisioning.provision() do
+  def provision_vk(conn, %{"connection_id" => id}) do
+    connection = BotRuntime.get_channel_connection!(id)
+
+    case BotMachine.BotRuntime.Channels.VKProvisioning.provision(connection) do
       {:ok, _} -> redirect(conn, to: ~p"/admin/bot/channels")
       {:error, error} -> send_resp(conn, 422, error)
     end
+  end
+
+  def save_connection_flows(conn, %{"connection_id" => id} = params) do
+    BotRuntime.set_connection_flows(id, Map.get(params, "flow_ids", []))
+    redirect(conn, to: ~p"/admin/bot/channels")
   end
 
   def sandbox(conn, _params),

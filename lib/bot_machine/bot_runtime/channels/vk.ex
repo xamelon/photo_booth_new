@@ -34,9 +34,10 @@ defmodule BotMachine.BotRuntime.Channels.VK do
 
   def parse_inbound(_), do: nil
 
-  @spec send(BotMachine.BotCore.Types.bot_output()) :: {:ok, String.t()} | {:error, String.t()}
-  def send(payload) do
-    creds = Credentials.get("vk") || %{}
+  @spec send(map(), BotMachine.BotCore.Types.bot_output()) ::
+          {:ok, String.t()} | {:error, String.t()}
+  def send(connection, payload) do
+    creds = Credentials.for_connection(connection) || %{}
     token = creds["group_access_token"]
 
     cond do

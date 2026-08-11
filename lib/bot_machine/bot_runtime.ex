@@ -5,8 +5,10 @@ defmodule BotMachine.BotRuntime do
   alias BotMachine.BotCore.{Runner, TriggerMatcher, Validator}
 
   alias BotMachine.BotRuntime.{
+    BotChannelConnection,
     BotEvent,
     BotFlow,
+    BotFlowConnection,
     BotFlowVersion,
     BotSession,
     BotTrigger,
@@ -17,8 +19,11 @@ defmodule BotMachine.BotRuntime do
   }
 
   def enqueue_inbox(input, idempotency_key \\ nil) do
+    connection = connection_for_input!(input)
+
     attrs = %{
-      channel: input["channel"],
+      bot_channel_connection_id: connection.id,
+      channel: connection.channel,
       external_id: input["external_id"],
       idempotency_key: idempotency_key || hash(input),
       payload: input,
@@ -29,6 +34,119 @@ defmodule BotMachine.BotRuntime do
     |> InboxEvent.changeset(attrs)
     |> Repo.insert(on_conflict: :nothing)
   end
+
+  def list_channel_connections do
+    Repo.all(
+      from c in BotChannelConnection,
+        left_join: fc in BotFlowConnection,
+        on: fc.bot_channel_connection_id == c.id and fc.enabled == true,
+        group_by: c.id,
+        order_by: [asc: c.channel, asc: c.name],
+        select_merge: %{flow_connection_count: count(fc.id)}
+    )
+  end
+
+  def get_channel_connection!(id), do: Repo.get!(BotChannelConnection, id)
+
+  def create_vk_connection(attrs) do
+    public_id = "conn_vk_" <> (:crypto.strong_rand_bytes(5) |> Base.url_encode64(padding: false))
+
+    %BotChannelConnection{}
+    |> BotChannelConnection.changeset(%{
+      channel: "vk",
+      name: attrs["name"] || "VK group",
+      external_id: attrs["group_id"],
+      public_id: public_id,
+      status: "active",
+      credentials: %{},
+      config: %{}
+    })
+    |> Repo.insert()
+    |> case do
+      {:ok, connection} -> BotMachine.BotRuntime.Credentials.put_connection(connection, attrs)
+      error -> error
+    end
+  end
+
+  def update_vk_connection(id, attrs) do
+    connection = get_channel_connection!(id)
+
+    connection
+    |> BotChannelConnection.changeset(%{name: attrs["name"] || connection.name})
+    |> Repo.update()
+    |> case do
+      {:ok, connection} -> BotMachine.BotRuntime.Credentials.put_connection(connection, attrs)
+      error -> error
+    end
+  end
+
+  def flow_connection_matrix do
+    flows = list_flows()
+    connections = list_channel_connections()
+
+    enabled =
+      Repo.all(
+        from fc in BotFlowConnection,
+          select: {fc.bot_channel_connection_id, fc.bot_flow_id, fc.enabled}
+      )
+      |> Map.new(fn {connection_id, flow_id, enabled} -> {{connection_id, flow_id}, enabled} end)
+
+    %{flows: flows, connections: connections, enabled: enabled}
+  end
+
+  def set_connection_flows(connection_id, flow_ids) do
+    connection = get_channel_connection!(connection_id)
+    flow_ids = MapSet.new(Enum.map(flow_ids, &String.to_integer(to_string(&1))))
+
+    Repo.transaction(fn ->
+      Repo.all(BotFlow)
+      |> Enum.each(fn flow ->
+        enabled? = MapSet.member?(flow_ids, flow.id)
+
+        flow_connection =
+          Repo.get_by(BotFlowConnection,
+            bot_flow_id: flow.id,
+            bot_channel_connection_id: connection.id
+          ) || %BotFlowConnection{}
+
+        flow_connection
+        |> BotFlowConnection.changeset(%{
+          bot_flow_id: flow.id,
+          bot_channel_connection_id: connection.id,
+          enabled: enabled?,
+          priority: 0,
+          config: %{}
+        })
+        |> Repo.insert_or_update!()
+      end)
+    end)
+  end
+
+  def default_connection(channel \\ "echo") do
+    Repo.get_by(BotChannelConnection, channel: channel) ||
+      %BotChannelConnection{}
+      |> BotChannelConnection.changeset(%{
+        channel: channel,
+        name: "#{String.upcase(channel)} default",
+        external_id: if(channel == "echo", do: "sandbox"),
+        public_id: "conn_#{channel}",
+        status: "active",
+        credentials: %{},
+        config: %{}
+      })
+      |> Repo.insert!()
+  end
+
+  def connection_for_public_id(public_id),
+    do: Repo.get_by(BotChannelConnection, public_id: public_id, status: "active")
+
+  defp connection_for_input!(%{"bot_channel_connection_id" => id}) when not is_nil(id),
+    do: Repo.get!(BotChannelConnection, id)
+
+  defp connection_for_input!(%{"connection_public_id" => public_id}) when is_binary(public_id),
+    do: connection_for_public_id(public_id) || raise("unknown channel connection #{public_id}")
+
+  defp connection_for_input!(%{"channel" => channel}), do: default_connection(channel)
 
   def process_pending_inbox(limit \\ 10) do
     due_inbox_query(limit)
@@ -175,19 +293,22 @@ defmodule BotMachine.BotRuntime do
   end
 
   def sandbox_state(channel \\ "echo", external_id \\ "sandbox") do
-    user = Repo.get_by(BotUser, channel: channel, external_id: external_id)
+    connection = default_connection(channel)
+
+    user =
+      Repo.get_by(BotUser, bot_channel_connection_id: connection.id, external_id: external_id)
 
     inbox =
       Repo.all(
         from e in InboxEvent,
-          where: e.channel == ^channel and e.external_id == ^external_id,
+          where: e.bot_channel_connection_id == ^connection.id and e.external_id == ^external_id,
           order_by: [asc: e.inserted_at]
       )
 
     outbox =
       Repo.all(
         from m in OutboxMessage,
-          where: m.channel == ^channel and m.external_id == ^external_id,
+          where: m.bot_channel_connection_id == ^connection.id and m.external_id == ^external_id,
           order_by: [asc: m.inserted_at]
       )
 
@@ -233,15 +354,20 @@ defmodule BotMachine.BotRuntime do
   end
 
   def reset_sandbox(channel \\ "echo", external_id \\ "sandbox") do
-    if user = Repo.get_by(BotUser, channel: channel, external_id: external_id),
-      do: Repo.delete!(user)
+    connection = default_connection(channel)
+
+    if user =
+         Repo.get_by(BotUser, bot_channel_connection_id: connection.id, external_id: external_id),
+       do: Repo.delete!(user)
 
     Repo.delete_all(
-      from e in InboxEvent, where: e.channel == ^channel and e.external_id == ^external_id
+      from e in InboxEvent,
+        where: e.bot_channel_connection_id == ^connection.id and e.external_id == ^external_id
     )
 
     Repo.delete_all(
-      from m in OutboxMessage, where: m.channel == ^channel and m.external_id == ^external_id
+      from m in OutboxMessage,
+        where: m.bot_channel_connection_id == ^connection.id and m.external_id == ^external_id
     )
 
     :ok
@@ -339,36 +465,50 @@ defmodule BotMachine.BotRuntime do
     event = mark_processing(event)
 
     Repo.transaction(fn ->
-      input = event.payload
-      user = get_or_create_user(input)
-      session = active_session(user)
-      trigger = find_trigger(input)
-      version = flow_version!(session, trigger)
+      connection = Repo.get!(BotChannelConnection, event.bot_channel_connection_id)
+      input = event.payload |> Map.put("channel", connection.channel)
+      user = get_or_create_user(connection, input)
+      session = active_session(connection, user)
+      trigger = find_trigger(connection, input)
 
-      result =
-        Runner.run(
-          version.definition,
-          input,
-          BotMachine.BotApp.registry(),
-          session && to_core_session(session),
-          trigger && to_core_trigger(trigger)
+      if is_nil(session) and is_nil(trigger) do
+        mark_processed(event)
+      else
+        version = flow_version!(session, trigger)
+
+        result =
+          Runner.run(
+            version.definition,
+            input,
+            BotMachine.BotApp.registry(),
+            session && to_core_session(session),
+            trigger && to_core_trigger(trigger)
+          )
+
+        session = save_session(connection, user, result.session)
+
+        Enum.each(result.events, &save_event(&1, connection, session))
+
+        Enum.with_index(
+          result.outputs,
+          &save_outbox(&1, connection, "#{event.idempotency_key}:out:#{&2}")
         )
 
-      session = save_session(user, result.session)
-
-      Enum.each(result.events, &save_event(&1, session))
-      Enum.with_index(result.outputs, &save_outbox(&1, "#{event.idempotency_key}:out:#{&2}"))
-
-      event
-      |> InboxEvent.changeset(%{
-        status: "processed",
-        processed_at: DateTime.utc_now() |> DateTime.truncate(:second),
-        last_error: nil
-      })
-      |> Repo.update!()
+        mark_processed(event)
+      end
     end)
   rescue
     error -> fail_inbox(event, Exception.message(error))
+  end
+
+  defp mark_processed(event) do
+    event
+    |> InboxEvent.changeset(%{
+      status: "processed",
+      processed_at: DateTime.utc_now() |> DateTime.truncate(:second),
+      last_error: nil
+    })
+    |> Repo.update!()
   end
 
   defp deliver_outbox(message) do
@@ -377,7 +517,9 @@ defmodule BotMachine.BotRuntime do
       |> OutboxMessage.changeset(%{status: "processing", attempts: message.attempts + 1})
       |> Repo.update!()
 
-    case Channels.send(message.channel, Map.put(message.payload, "_outbox_id", message.id)) do
+    connection = Repo.get!(BotChannelConnection, message.bot_channel_connection_id)
+
+    case Channels.send(connection, Map.put(message.payload, "_outbox_id", message.id)) do
       {:ok, external_message_id} ->
         message
         |> OutboxMessage.changeset(%{
@@ -395,11 +537,15 @@ defmodule BotMachine.BotRuntime do
     error -> fail_outbox(message, Exception.message(error))
   end
 
-  defp get_or_create_user(input) do
-    Repo.get_by(BotUser, channel: input["channel"], external_id: input["external_id"]) ||
+  defp get_or_create_user(connection, input) do
+    Repo.get_by(BotUser,
+      bot_channel_connection_id: connection.id,
+      external_id: input["external_id"]
+    ) ||
       %BotUser{}
       |> BotUser.changeset(%{
-        channel: input["channel"],
+        bot_channel_connection_id: connection.id,
+        channel: connection.channel,
         external_id: input["external_id"],
         display_name: input["display_name"]
       })
@@ -478,11 +624,15 @@ defmodule BotMachine.BotRuntime do
 
   defp condition_label(_), do: "branch"
 
-  defp find_trigger(input) do
+  defp find_trigger(connection, input) do
     triggers =
       Repo.all(
         from t in BotTrigger,
-          where: t.channel == ^input["channel"] and t.enabled == true,
+          join: fc in BotFlowConnection,
+          on: fc.bot_flow_id == t.bot_flow_id,
+          where:
+            fc.bot_channel_connection_id == ^connection.id and fc.enabled == true and
+              t.channel == ^connection.channel and t.enabled == true,
           order_by: [desc: t.priority]
       )
 
@@ -529,18 +679,21 @@ defmodule BotMachine.BotRuntime do
     )
   end
 
-  defp active_session(user) do
+  defp active_session(connection, user) do
     Repo.one(
       from s in BotSession,
-        where: s.bot_user_id == ^user.id and is_nil(s.completed_at),
+        where:
+          s.bot_channel_connection_id == ^connection.id and s.bot_user_id == ^user.id and
+            is_nil(s.completed_at),
         order_by: [desc: s.updated_at],
         limit: 1
     )
   end
 
-  defp save_session(user, state) do
+  defp save_session(connection, user, state) do
     attrs = %{
       bot_user_id: user.id,
+      bot_channel_connection_id: connection.id,
       flow_id: state.flow_id,
       flow_version: state.flow_version,
       current_node_id: state.current_node_id,
@@ -552,7 +705,8 @@ defmodule BotMachine.BotRuntime do
     query =
       from s in BotSession,
         where:
-          s.bot_user_id == ^user.id and s.flow_id == ^state.flow_id and is_nil(s.completed_at),
+          s.bot_channel_connection_id == ^connection.id and s.bot_user_id == ^user.id and
+            is_nil(s.completed_at),
         limit: 1
 
     case Repo.one(query) do
@@ -561,10 +715,11 @@ defmodule BotMachine.BotRuntime do
     end
   end
 
-  defp save_event(event, session) do
+  defp save_event(event, connection, session) do
     %BotEvent{}
     |> BotEvent.changeset(%{
       bot_session_id: session.id,
+      bot_channel_connection_id: connection.id,
       flow_id: event["flow_id"],
       node_id: event["node_id"],
       event_type: event["event_type"],
@@ -573,10 +728,11 @@ defmodule BotMachine.BotRuntime do
     |> Repo.insert!()
   end
 
-  defp save_outbox(output, key) do
+  defp save_outbox(output, connection, key) do
     %OutboxMessage{}
     |> OutboxMessage.changeset(%{
-      channel: output["channel"],
+      bot_channel_connection_id: connection.id,
+      channel: connection.channel,
       external_id: output["external_id"],
       idempotency_key: key,
       payload: output,

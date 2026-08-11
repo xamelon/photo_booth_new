@@ -1492,3 +1492,263 @@ button {
   color: #b42318;
   font-size: 12px;
 }
+
+.data-table-wrap {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.data-table th,
+.data-table td {
+  border-bottom: 1px solid rgb(55 53 47 / 0.1);
+  padding: 10px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.data-table th {
+  color: rgb(55 53 47 / 0.55);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.connection-editor {
+  border-top: 1px solid rgb(55 53 47 / 0.12);
+  padding-top: 16px;
+  margin-top: 16px;
+}
+
+.connection-editor:first-of-type {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.connection-editor-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.compact-facts {
+  grid-template-columns: 1fr;
+  margin-bottom: 14px;
+}
+
+.stack-form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.connection-flow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.flow-toggle-panel {
+  gap: 10px;
+}
+
+.flow-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgb(55 53 47 / 0.12);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.flow-checkbox input {
+  width: auto;
+}
+
+.flow-checkbox span {
+  display: grid;
+  gap: 2px;
+}
+
+.flow-checkbox small {
+  color: rgb(55 53 47 / 0.52);
+}
+
+/* Channels: boring admin UI, not cards/landing-page */
+.admin-panel {
+  border: 1px solid rgb(55 53 47 / 0.1);
+  border-radius: 8px;
+  background: #fff;
+  margin-bottom: 16px;
+}
+
+.panel-header {
+  border-bottom: 1px solid rgb(55 53 47 / 0.1);
+  padding: 12px 14px;
+}
+
+.panel-header h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.channels-table code,
+.mono-cell code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.routing-list,
+.connection-edit-list {
+  display: grid;
+}
+
+.routing-row,
+.connection-edit-row {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  border-bottom: 1px solid rgb(55 53 47 / 0.08);
+  padding: 12px 14px;
+}
+
+.connection-edit-row {
+  grid-template-columns: 150px minmax(0, 1fr) auto;
+}
+
+.routing-row:last-child,
+.connection-edit-row:last-child {
+  border-bottom: 0;
+}
+
+.routing-row small,
+.connection-meta small {
+  display: block;
+  overflow-wrap: anywhere;
+  color: rgb(55 53 47 / 0.52);
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.routing-flows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding-top: 2px;
+}
+
+.routing-flows label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.routing-flows input[type="checkbox"] {
+  min-width: 0;
+  width: auto;
+  margin: 0;
+}
+
+.inline-form {
+  display: grid;
+  gap: 10px;
+  align-items: end;
+}
+
+.vk-create-form {
+  grid-template-columns: 180px 140px minmax(220px, 1fr) auto;
+  border-bottom: 1px solid rgb(55 53 47 / 0.1);
+  padding: 12px 14px;
+}
+
+.connection-save-form {
+  grid-template-columns: 150px 120px 150px minmax(180px, 1fr) auto;
+}
+
+.inline-form label span {
+  display: block;
+  margin-bottom: 4px;
+  color: rgb(55 53 47 / 0.52);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.inline-form input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 7px 8px;
+}
+
+.compact-button {
+  width: auto;
+  white-space: nowrap;
+  padding: 7px 10px;
+}
+
+.compact-error {
+  grid-column: 1 / -1;
+  max-height: 64px;
+  overflow: auto;
+  border: 1px solid rgb(224 62 62 / 0.16);
+  border-radius: 6px;
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .routing-row,
+  .connection-edit-row,
+  .vk-create-form,
+  .connection-save-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+.routing-flows input[type="checkbox"] {
+  appearance: auto;
+  inline-size: 14px;
+  block-size: 14px;
+  accent-color: #2383e2;
+}
+
+.connection-edit-row {
+  grid-template-columns: 150px minmax(0, 1fr);
+}
+
+.connection-edit-row > form:last-of-type {
+  grid-column: 2;
+  justify-self: end;
+  margin-top: -42px;
+}
+
+.connection-save-form {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  padding-right: 95px;
+}
+
+.connection-save-form .compact-button {
+  align-self: end;
+}
+
+@media (max-width: 900px) {
+  .connection-edit-row > form:last-of-type {
+    grid-column: auto;
+    justify-self: start;
+    margin-top: 0;
+  }
+
+  .connection-save-form {
+    padding-right: 0;
+  }
+}

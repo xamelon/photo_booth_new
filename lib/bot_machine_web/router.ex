@@ -55,8 +55,10 @@ defmodule BotMachineWeb.Router do
     post "/bot/flows/:version_id/edit", BotController, :save_flow_editor
     get "/bot/triggers", BotController, :triggers
     get "/bot/channels", BotController, :channels
-    post "/bot/channels/vk", BotController, :save_vk
-    post "/bot/channels/vk/provision", BotController, :provision_vk
+    post "/bot/channels/vk", BotController, :create_vk
+    post "/bot/channels/vk/:connection_id", BotController, :save_vk
+    post "/bot/channels/vk/:connection_id/provision", BotController, :provision_vk
+    post "/bot/channels/:connection_id/flows", BotController, :save_connection_flows
     get "/bot/sandbox", BotController, :sandbox
     post "/bot/sandbox/send", BotController, :sandbox_send
     post "/bot/sandbox/reset", BotController, :sandbox_reset
@@ -77,6 +79,7 @@ defmodule BotMachineWeb.Router do
 
     post "/echo", WebhookController, :echo
     post "/vk", VKWebhookController, :callback
+    post "/vk/:connection_public_id", VKWebhookController, :callback
   end
 
   # Enable LiveDashboard in development

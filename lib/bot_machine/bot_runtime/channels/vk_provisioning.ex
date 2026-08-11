@@ -5,12 +5,14 @@ defmodule BotMachine.BotRuntime.Channels.VKProvisioning do
   @timeout_ms 15_000
   @poll_ms 250
 
-  @spec provision() :: {:ok, %{server_id: integer(), group_id: integer()}} | {:error, String.t()}
-  def provision do
-    creds = Credentials.get("vk") || %{}
+  @spec provision(map() | nil) ::
+          {:ok, %{server_id: integer(), group_id: integer()}} | {:error, String.t()}
+  def provision(connection \\ nil) do
+    connection = connection || BotMachine.BotRuntime.default_connection("vk")
+    creds = Credentials.for_connection(connection) || %{}
     token = creds["group_access_token"]
     group_id = parse_int(creds["group_id"])
-    callback_url = callback_url()
+    callback_url = callback_url(connection)
 
     cond do
       !token ->
@@ -23,27 +25,32 @@ defmodule BotMachine.BotRuntime.Channels.VKProvisioning do
         {:error, error}
 
       true ->
-        do_provision(creds, group_id, token, callback_url)
+        do_provision(connection, creds, group_id, token, callback_url)
     end
   end
 
-  @spec mark_confirmation_received() :: {:ok, term()} | {:error, term()}
-  def mark_confirmation_received do
-    Credentials.put("vk", %{
+  @spec mark_confirmation_received(map() | nil) :: {:ok, term()} | {:error, term()}
+  def mark_confirmation_received(connection \\ nil) do
+    connection = connection || BotMachine.BotRuntime.default_connection("vk")
+
+    Credentials.put_connection(connection, %{
       "confirmation_received_at" =>
         DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.to_iso8601()
     })
   end
 
-  @spec callback_url() :: String.t()
-  def callback_url, do: String.trim_trailing(public_base_url(), "/") <> "/webhooks/vk"
+  @spec callback_url(map() | nil) :: String.t()
+  def callback_url(connection \\ nil) do
+    connection = connection || BotMachine.BotRuntime.default_connection("vk")
+    String.trim_trailing(public_base_url(), "/") <> "/webhooks/vk/#{connection.public_id}"
+  end
 
-  defp do_provision(creds, group_id, token, callback_url) do
+  defp do_provision(connection, creds, group_id, token, callback_url) do
     callback_secret = creds["callback_secret"] || random_hex(16)
 
     with {:ok, confirmation_code} <- get_confirmation_code(group_id, token),
          {:ok, _} <-
-           Credentials.put("vk", %{
+           Credentials.put_connection(connection, %{
              "confirmation_code" => confirmation_code,
              "callback_secret" => callback_secret,
              "provision_status" => "provisioning",
@@ -57,8 +64,9 @@ defmodule BotMachine.BotRuntime.Channels.VKProvisioning do
              callback_secret,
              creds["callback_server_id"]
            ),
-         {:ok, _} <- Credentials.put("vk", %{"callback_server_id" => to_string(server_id)}),
-         true <- wait_for_confirmation(server_id, group_id, token),
+         {:ok, _} <-
+           Credentials.put_connection(connection, %{"callback_server_id" => to_string(server_id)}),
+         true <- wait_for_confirmation(connection, server_id, group_id, token),
          {:ok, _} <-
            call_vk("groups.setCallbackSettings", %{
              "group_id" => group_id,
@@ -68,7 +76,7 @@ defmodule BotMachine.BotRuntime.Channels.VKProvisioning do
              "message_event" => 0,
              "access_token" => token
            }) do
-      Credentials.put("vk", %{
+      Credentials.put_connection(connection, %{
         "provision_status" => "active",
         "last_provision_error" => "",
         "provisioned_at" =>
@@ -77,9 +85,9 @@ defmodule BotMachine.BotRuntime.Channels.VKProvisioning do
 
       {:ok, %{server_id: server_id, group_id: group_id}}
     else
-      false -> mark_error("VK did not confirm callback URL in #{@timeout_ms}ms")
-      {:error, reason} -> mark_error(reason)
-      other -> mark_error("VK provisioning failed: #{inspect(other)}")
+      false -> mark_error(connection, "VK did not confirm callback URL in #{@timeout_ms}ms")
+      {:error, reason} -> mark_error(connection, reason)
+      other -> mark_error(connection, "VK provisioning failed: #{inspect(other)}")
     end
   end
 
@@ -128,13 +136,13 @@ defmodule BotMachine.BotRuntime.Channels.VKProvisioning do
     end
   end
 
-  defp wait_for_confirmation(server_id, group_id, token) do
+  defp wait_for_confirmation(connection, server_id, group_id, token) do
     deadline = System.monotonic_time(:millisecond) + @timeout_ms
-    wait_loop(deadline, server_id, group_id, token)
+    wait_loop(connection, deadline, server_id, group_id, token)
   end
 
-  defp wait_loop(deadline, server_id, group_id, token) do
-    creds = Credentials.get("vk") || %{}
+  defp wait_loop(connection, deadline, server_id, group_id, token) do
+    creds = Credentials.for_connection(connection) || %{}
 
     cond do
       creds["confirmation_received_at"] ->
@@ -144,12 +152,12 @@ defmodule BotMachine.BotRuntime.Channels.VKProvisioning do
         false
 
       server_ok?(server_id, group_id, token) ->
-        mark_confirmation_received()
+        mark_confirmation_received(connection)
         true
 
       true ->
         Process.sleep(@poll_ms)
-        wait_loop(deadline, server_id, group_id, token)
+        wait_loop(connection, deadline, server_id, group_id, token)
     end
   end
 
@@ -217,8 +225,8 @@ defmodule BotMachine.BotRuntime.Channels.VKProvisioning do
       end
   end
 
-  defp mark_error(reason) do
-    Credentials.put("vk", %{
+  defp mark_error(connection, reason) do
+    Credentials.put_connection(connection, %{
       "provision_status" => "error",
       "last_provision_error" => to_string(reason)
     })

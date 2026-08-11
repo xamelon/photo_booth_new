@@ -4,6 +4,7 @@ defmodule BotMachine.BotRuntime.BotEvent do
 
   schema "bot_events" do
     belongs_to :bot_session, BotMachine.BotRuntime.BotSession
+    belongs_to :bot_channel_connection, BotMachine.BotRuntime.BotChannelConnection
     field :flow_id, :string
     field :node_id, :string
     field :event_type, :string
@@ -13,6 +14,13 @@ defmodule BotMachine.BotRuntime.BotEvent do
 
   def changeset(event, attrs),
     do:
-      cast(event, attrs, [:bot_session_id, :flow_id, :node_id, :event_type, :payload])
+      cast(event, attrs, [
+        :bot_session_id,
+        :bot_channel_connection_id,
+        :flow_id,
+        :node_id,
+        :event_type,
+        :payload
+      ])
       |> validate_required([:flow_id, :event_type])
 end

@@ -2,102 +2,157 @@
   <div class="page-header">
     <div>
       <h1>Channels</h1>
-      <p class="page-subtitle">
-        Подключения к платформам. Core не знает про VK, это adapter layer.
-      </p>
+      <p class="page-subtitle">Connections, credentials, and flow routing.</p>
     </div>
   </div>
 
-  <section class="channel-card channel-card-vk">
-    <div class="channel-card-header">
-      <div>
-        <div class="channel-kicker">Platform</div>
-        <h2>VK</h2>
-        <p>Callback API, входящие <code>message_new</code>, отправка сообщений и фото.</p>
-      </div>
-      <span class={["status-pill", (@vk && @vk["provision_status"]) || "none"]}>
-        {(@vk && @vk["provision_status"]) || "not provisioned"}
-      </span>
+  <section class="admin-panel">
+    <div class="panel-header">
+      <h2>Connections</h2>
     </div>
 
-    <div class="channel-facts">
-      <div>
-        <span>Webhook URL</span>
-        <code>{@vk_callback_url}</code>
-      </div>
-      <div>
-        <span>Group ID</span>
-        <strong>{(@vk && @vk["group_id"]) || "—"}</strong>
-      </div>
-      <div>
-        <span>Token</span>
-        <strong>{if @vk && @vk["group_access_token"], do: "configured", else: "missing"}</strong>
-      </div>
-      <div>
-        <span>Callback server</span>
-        <strong>{(@vk && @vk["callback_server_id"]) || "—"}</strong>
-      </div>
+    <div class="data-table-wrap">
+      <table class="data-table channels-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Platform</th>
+            <th>External ID</th>
+            <th>Flows</th>
+            <th>Webhook</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr :for={connection <- @connections}>
+            <td><strong>{connection.name}</strong></td>
+            <td>{connection.channel}</td>
+            <td><code>{connection.external_id || "—"}</code></td>
+            <td>{connection.flow_connection_count || 0}</td>
+            <td class="mono-cell">
+              <code :if={connection.channel == "vk"}>{@callback_url.(connection)}</code>
+              <span :if={connection.channel != "vk"}>—</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="admin-panel">
+    <div class="panel-header">
+      <h2>Flow routing</h2>
     </div>
 
-    <p :if={@vk && @vk["last_provision_error"] not in [nil, ""]} class="channel-error">
-      {@vk["last_provision_error"]}
-    </p>
-
-    <div class="channel-grid">
-      <form method="post" action={~p"/admin/bot/channels/vk"} class="settings-panel">
-        <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
-        <h3>Credentials</h3>
-        <p>Token не показывается после сохранения. Оставь поле пустым, чтобы не менять его.</p>
-
-        <label>
-          <span>Group ID</span>
-          <input name="vk[group_id]" value={@vk && @vk["group_id"]} placeholder="123456" />
-        </label>
-
-        <label>
-          <span>Confirmation code</span>
-          <input
-            name="vk[confirmation_code]"
-            value={@vk && @vk["confirmation_code"]}
-            placeholder="получится автоматически при provisioning"
-          />
-        </label>
-
-        <label>
-          <span>Group access token</span>
-          <input
-            name="vk[group_access_token]"
-            type="password"
-            value=""
-            placeholder={if @vk && @vk["group_access_token"], do: "configured", else: "vk1..."}
-            autocomplete="off"
-          />
-        </label>
-
-        <button>Save credentials</button>
-      </form>
-
+    <div class="routing-list">
       <form
+        :for={connection <- @connections}
         method="post"
-        action={~p"/admin/bot/channels/vk/provision"}
-        class="settings-panel provision-panel"
+        action={~p"/admin/bot/channels/#{connection.id}/flows"}
+        class="routing-row"
       >
         <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
-        <h3>Provision callback</h3>
-        <p>
-          Создаст или обновит VK callback server, дождётся confirmation и включит <code>message_new</code>.
-        </p>
+        <div>
+          <strong>{connection.name}</strong>
+          <small>{connection.channel} · {connection.external_id || connection.public_id}</small>
+        </div>
 
-        <ol class="provision-steps">
-          <li>Проверить публичный HTTPS URL</li>
-          <li>Получить confirmation code</li>
-          <li>Создать callback server</li>
-          <li>Включить message_new</li>
-        </ol>
+        <div class="routing-flows">
+          <label :for={flow <- @flows}>
+            <input
+              type="checkbox"
+              name="flow_ids[]"
+              value={flow.id}
+              checked={Map.get(@enabled_flows, {connection.id, flow.id}, false)}
+            />
+            {flow.name}
+          </label>
+        </div>
 
-        <button class="secondary-button">Provision VK callback</button>
-        <p class="hint">Для локалки нужен tunnel и <code>PUBLIC_BASE_URL=https://...</code></p>
+        <button class="secondary-button compact-button">Save</button>
       </form>
+    </div>
+  </section>
+
+  <section class="admin-panel">
+    <div class="panel-header">
+      <h2>VK</h2>
+    </div>
+
+    <form method="post" action={~p"/admin/bot/channels/vk"} class="inline-form vk-create-form">
+      <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+      <label>
+        <span>Name</span>
+        <input name="vk[name]" placeholder="VK group" />
+      </label>
+      <label>
+        <span>Group ID</span>
+        <input name="vk[group_id]" placeholder="123456" />
+      </label>
+      <label class="wide-field">
+        <span>Access token</span>
+        <input
+          name="vk[group_access_token]"
+          type="password"
+          placeholder="vk1..."
+          autocomplete="off"
+        />
+      </label>
+      <button>Create</button>
+    </form>
+
+    <div class="connection-edit-list">
+      <div
+        :for={connection <- Enum.filter(@connections, &(&1.channel == "vk"))}
+        class="connection-edit-row"
+      >
+        <% vk = @credential.(connection) || %{} %>
+
+        <div class="connection-meta">
+          <strong>{connection.name}</strong>
+          <small>token: {if vk["group_access_token"], do: "configured", else: "missing"}</small>
+          <small>server: {vk["callback_server_id"] || "—"}</small>
+        </div>
+
+        <form
+          method="post"
+          action={~p"/admin/bot/channels/vk/#{connection.id}"}
+          class="inline-form connection-save-form"
+        >
+          <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+          <label>
+            <span>Name</span>
+            <input name="vk[name]" value={connection.name} />
+          </label>
+          <label>
+            <span>Group ID</span>
+            <input name="vk[group_id]" value={vk["group_id"] || connection.external_id} />
+          </label>
+          <label>
+            <span>Confirmation</span>
+            <input name="vk[confirmation_code]" value={vk["confirmation_code"]} />
+          </label>
+          <label>
+            <span>Token</span>
+            <input
+              name="vk[group_access_token]"
+              type="password"
+              value=""
+              placeholder={if vk["group_access_token"], do: "configured", else: "vk1..."}
+              autocomplete="off"
+            />
+          </label>
+          <button class="secondary-button compact-button">Save</button>
+        </form>
+
+        <form method="post" action={~p"/admin/bot/channels/vk/#{connection.id}/provision"}>
+          <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+          <button class="secondary-button compact-button">Provision</button>
+        </form>
+
+        <p :if={vk["last_provision_error"] not in [nil, ""]} class="channel-error compact-error">
+          {vk["last_provision_error"]}
+        </p>
+      </div>
     </div>
   </section>
 </.admin_shell>

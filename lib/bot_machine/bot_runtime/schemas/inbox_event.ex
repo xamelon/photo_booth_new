@@ -3,6 +3,7 @@ defmodule BotMachine.BotRuntime.InboxEvent do
   import Ecto.Changeset
 
   schema "bot_inbox_events" do
+    belongs_to :bot_channel_connection, BotMachine.BotRuntime.BotChannelConnection
     field :channel, :string
     field :external_id, :string
     field :idempotency_key, :string
@@ -18,6 +19,7 @@ defmodule BotMachine.BotRuntime.InboxEvent do
   def changeset(event, attrs),
     do:
       cast(event, attrs, [
+        :bot_channel_connection_id,
         :channel,
         :external_id,
         :idempotency_key,
@@ -28,6 +30,13 @@ defmodule BotMachine.BotRuntime.InboxEvent do
         :last_error,
         :processed_at
       ])
-      |> validate_required([:channel, :external_id, :idempotency_key, :payload, :status])
+      |> validate_required([
+        :bot_channel_connection_id,
+        :channel,
+        :external_id,
+        :idempotency_key,
+        :payload,
+        :status
+      ])
       |> unique_constraint(:idempotency_key)
 end
