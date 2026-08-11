@@ -7,6 +7,7 @@ defmodule BotMachineWeb.AdminAuth do
   def init(opts), do: opts
   def call(conn, :fetch_current_admin), do: fetch_current_admin(conn, [])
   def call(conn, :require_admin), do: require_admin(conn, [])
+  def call(conn, :require_admin_json), do: require_admin_json(conn, [])
 
   def fetch_current_admin(conn, _opts) do
     admin_id = get_session(conn, :admin_user_id)
@@ -20,6 +21,17 @@ defmodule BotMachineWeb.AdminAuth do
       conn
       |> put_flash(:error, "Войдите в админку")
       |> redirect(to: "/login")
+      |> halt()
+    end
+  end
+
+  def require_admin_json(conn, _opts) do
+    if conn.assigns[:current_admin] do
+      conn
+    else
+      conn
+      |> put_status(:unauthorized)
+      |> json(%{error: "admin login required"})
       |> halt()
     end
   end

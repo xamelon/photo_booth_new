@@ -19,6 +19,14 @@ defmodule BotMachineWeb.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :admin_api do
+    plug :accepts, ["json"]
+    plug :fetch_session
+    plug :put_secure_browser_headers
+    plug BotMachineWeb.AdminAuth, :fetch_current_admin
+    plug BotMachineWeb.AdminAuth, :require_admin_json
+  end
+
   scope "/", BotMachineWeb do
     pipe_through :browser
 
@@ -50,6 +58,15 @@ defmodule BotMachineWeb.Router do
     get "/bot/sandbox", BotController, :sandbox
     post "/bot/sandbox/send", BotController, :sandbox_send
     post "/bot/sandbox/reset", BotController, :sandbox_reset
+  end
+
+  scope "/admin/api/agent", BotMachineWeb.Admin do
+    pipe_through :admin_api
+
+    get "/overview", AgentController, :overview
+    get "/flows/:version_id", AgentController, :flow
+    post "/flows/:version_id/validate", AgentController, :validate_flow
+    post "/flows/:version_id/save", AgentController, :save_flow
   end
 
   scope "/webhooks", BotMachineWeb do

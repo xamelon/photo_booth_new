@@ -159,8 +159,11 @@ defmodule BotMachine.BotRuntime do
     )
   end
 
+  def validate_flow_definition(definition),
+    do: Validator.validate(definition, BotMachine.ExampleBot.registry())
+
   def save_flow_definition(%BotFlowVersion{} = version, definition) do
-    issues = Validator.validate(definition, BotMachine.ExampleBot.registry())
+    issues = validate_flow_definition(definition)
 
     if issues == [] do
       version
