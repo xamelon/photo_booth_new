@@ -38,7 +38,11 @@ defmodule BotMachine.Application do
 
   defp runtime_workers do
     if Application.get_env(:bot_machine, :start_bot_workers, true) do
-      [BotMachine.BotRuntime.InboxWorker, BotMachine.BotRuntime.OutboxWorker]
+      [
+        BotMachine.BotRuntime.InboxWorker,
+        BotMachine.BotRuntime.OutboxWorker,
+        PhotoBoothBot.GenerationWorker
+      ]
     else
       []
     end

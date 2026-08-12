@@ -1,9 +1,10 @@
 defmodule BotMachine.BotCore.RunnerTest do
-  use ExUnit.Case, async: true
+  use BotMachine.DataCase
 
   alias BotMachine.BotCore.Runner
+  alias PhotoBoothBot.GenerationJob
 
-  test "runs photo booth edit flow" do
+  test "runs photo booth edit flow until generation wait" do
     flow = PhotoBoothBot.flow()
     registry = PhotoBoothBot.registry()
 
@@ -29,13 +30,38 @@ defmodule BotMachine.BotCore.RunnerTest do
     assert third.session.context["photo_url"] == "https://example.com/photo.jpg"
 
     fourth = Runner.run(flow, input("Добавь кинематографичный свет"), registry, third.session)
-    assert fourth.session.completed
+    refute fourth.session.completed
+    assert fourth.session.current_node_id == "generation_wait"
     assert fourth.session.context["generation_title"] == "Редактирование фото"
     assert fourth.session.context["generation_prompt"] == "Добавь кинематографичный свет"
 
     assert Enum.map(fourth.outputs, & &1["text"]) == [
-             "✨ Заявка подготовлена: Редактирование фото.\nГенерацию через fal.ai подключим следующим шагом."
+             "✨ Приняла заявку: Редактирование фото. Запускаю генерацию."
            ]
+
+    assert Repo.get!(GenerationJob, fourth.session.context["generation_job_id"]).status ==
+             "pending"
+  end
+
+  test "generation wait handles completed event" do
+    flow = PhotoBoothBot.flow()
+    registry = PhotoBoothBot.registry()
+
+    session = %{
+      channel: "echo",
+      external_id: "1",
+      flow_id: "photo_booth",
+      flow_version: 4,
+      current_node_id: "generation_wait",
+      context: %{},
+      completed: false
+    }
+
+    result =
+      Runner.run(flow, generation_done_input("https://example.com/result.jpg"), registry, session)
+
+    assert result.session.completed
+    assert [%{"attachments" => [%{"url" => "https://example.com/result.jpg"}]}] = result.outputs
   end
 
   defp input(text),
@@ -43,4 +69,13 @@ defmodule BotMachine.BotCore.RunnerTest do
 
   defp photo_input(url),
     do: Map.put(input(""), "attachments", [%{"type" => "photo", "url" => url}])
+
+  defp generation_done_input(url),
+    do:
+      input("")
+      |> Map.merge(%{
+        "kind" => "system_event",
+        "event_type" => "photo_generation_completed",
+        "image_url" => url
+      })
 end

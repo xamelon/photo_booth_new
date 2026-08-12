@@ -1,5 +1,8 @@
 defmodule PhotoBoothBot do
   alias BotMachine.BotCore.{Registry, Renderer}
+  alias BotMachine.BotRuntime
+  alias BotMachine.Repo
+  alias PhotoBoothBot.GenerationJob
 
   @menu_buttons [
     [
@@ -28,13 +31,14 @@ defmodule PhotoBoothBot do
   def registry do
     Registry.new()
     |> Registry.node("photo_input", &photo_input_enter/2, &photo_input_receive/2)
+    |> Registry.node("generation_wait", &generation_wait_enter/2, &generation_wait_receive/2)
     |> Registry.action("prepare_generation", &prepare_generation/2)
   end
 
   def flow do
     %{
       "id" => "photo_booth",
-      "version" => 3,
+      "version" => 4,
       "start_node_id" => "welcome",
       "nodes" => [
         %{
@@ -68,7 +72,7 @@ defmodule PhotoBoothBot do
             "title" => "Редактирование фото",
             "prompt_key" => "edit_prompt"
           },
-          "next" => "generation_stub"
+          "next" => "generation_wait"
         },
         %{
           "id" => "ask_birthday_photo",
@@ -87,7 +91,7 @@ defmodule PhotoBoothBot do
             "prompt" =>
               "СТРОГО: сохрани лица 1:1. Преврати это фото в праздничную открытку на день рождения. Добавь мягкий теплый свет, воздушные шары, конфетти, аккуратные праздничные декоративные элементы и нарядный фон. Без текста на изображении."
           },
-          "next" => "generation_stub"
+          "next" => "generation_wait"
         },
         %{
           "id" => "ask_restore_photo",
@@ -106,15 +110,11 @@ defmodule PhotoBoothBot do
             "title" => "Реставрация фото",
             "prompt" => "Сделай фото цветным. Убери все повреждения"
           },
-          "next" => "generation_stub"
+          "next" => "generation_wait"
         },
         %{
-          "id" => "generation_stub",
-          "type" => "message",
-          "text" =>
-            "✨ Заявка подготовлена: {{generation_title}}.\nГенерацию через fal.ai подключим следующим шагом.",
-          "keyboard_mode" => "reply",
-          "button_rows" => @menu_buttons,
+          "id" => "generation_wait",
+          "type" => "generation_wait",
           "next" => "end"
         },
         %{
@@ -191,6 +191,98 @@ defmodule PhotoBoothBot do
       _ -> nil
     end)
   end
+
+  defp generation_wait_enter(%{input: input, session: session}, _node) do
+    job =
+      %GenerationJob{}
+      |> GenerationJob.changeset(%{
+        bot_channel_connection_id: connection_id(input),
+        channel: input["channel"],
+        external_id: input["external_id"],
+        status: "pending",
+        mode: session.context["generation_mode"],
+        title: session.context["generation_title"],
+        photo_url: session.context["photo_url"],
+        prompt: session.context["generation_prompt"]
+      })
+      |> Repo.insert!()
+
+    %{
+      context: Map.put(session.context, "generation_job_id", job.id),
+      outputs: [
+        %{
+          "type" => "message",
+          "channel" => input["channel"],
+          "external_id" => input["external_id"],
+          "text" =>
+            "✨ Приняла заявку: #{session.context["generation_title"]}. Запускаю генерацию.",
+          "buttons" => [],
+          "keyboard_mode" => "inline",
+          "buttons_per_row" => 3
+        }
+      ]
+    }
+  end
+
+  defp generation_wait_receive(
+         %{input: %{"event_type" => "photo_generation_completed"} = input},
+         node
+       ) do
+    %{
+      outputs: [
+        %{
+          "type" => "message",
+          "channel" => input["channel"],
+          "external_id" => input["external_id"],
+          "text" => "✨ Фото готово!",
+          "attachments" => [%{"type" => "photo", "url" => input["image_url"]}],
+          "button_rows" => @menu_buttons,
+          "keyboard_mode" => "reply",
+          "buttons_per_row" => 2
+        }
+      ],
+      next_node_id: node["next"]
+    }
+  end
+
+  defp generation_wait_receive(
+         %{input: %{"event_type" => "photo_generation_failed"} = input},
+         node
+       ) do
+    %{
+      outputs: [
+        %{
+          "type" => "message",
+          "channel" => input["channel"],
+          "external_id" => input["external_id"],
+          "text" => "😔 Не получилось сгенерировать фото. Попробуйте ещё раз.",
+          "button_rows" => @menu_buttons,
+          "keyboard_mode" => "reply",
+          "buttons_per_row" => 2
+        }
+      ],
+      next_node_id: node["next"]
+    }
+  end
+
+  defp generation_wait_receive(%{input: input}, _node) do
+    %{
+      outputs: [
+        %{
+          "type" => "message",
+          "channel" => input["channel"],
+          "external_id" => input["external_id"],
+          "text" => "⏳ Генерация уже идёт. Немного подождите.",
+          "buttons" => [],
+          "keyboard_mode" => "inline",
+          "buttons_per_row" => 3
+        }
+      ]
+    }
+  end
+
+  defp connection_id(input),
+    do: input["bot_channel_connection_id"] || BotRuntime.default_connection(input["channel"]).id
 
   defp prepare_generation(%{session: session}, params) do
     prompt = params["prompt"] || session.context[params["prompt_key"]]
