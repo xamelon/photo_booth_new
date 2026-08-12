@@ -96,7 +96,8 @@ body {
 }
 
 .admin-main {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   max-width: 1120px;
   padding: 40px;
 }
@@ -1665,7 +1666,8 @@ button {
 }
 
 .vk-create-form {
-  grid-template-columns: 180px 140px minmax(220px, 1fr) auto;
+  grid-template-columns: 180px 150px 320px auto;
+  justify-content: start;
   border-bottom: 1px solid rgb(55 53 47 / 0.1);
   padding: 12px 14px;
 }
@@ -1733,8 +1735,9 @@ button {
 }
 
 .connection-save-form {
-  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
-  padding-right: 95px;
+  grid-template-columns: 170px 140px 150px 280px auto;
+  justify-content: start;
+  padding-right: 0;
 }
 
 .connection-save-form .compact-button {
