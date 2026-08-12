@@ -25,19 +25,19 @@ case BotMachine.Accounts.get_admin_user_by_email(email) do
 end
 
 flow =
-  Repo.get_by(BotFlow, slug: "demo") ||
-    Repo.insert!(%BotFlow{slug: "demo", name: "Demo flow", status: "published"})
+  Repo.get_by(BotFlow, slug: "photo_booth") ||
+    Repo.insert!(%BotFlow{slug: "photo_booth", name: "PhotoBooth flow", status: "published"})
 
-Repo.delete_all(from t in BotTrigger, where: t.bot_flow_id == ^flow.id and t.name == "Start")
+Repo.delete_all(from t in BotTrigger, where: t.name in ["Start", "Start echo", "Start VK"])
 
-demo_flow = BotMachine.BotApp.flow()
+app_flow = BotMachine.BotApp.flow()
 
-unless Repo.get_by(BotFlowVersion, bot_flow_id: flow.id, version: demo_flow["version"]) do
+unless Repo.get_by(BotFlowVersion, bot_flow_id: flow.id, version: app_flow["version"]) do
   Repo.insert!(%BotFlowVersion{
     bot_flow_id: flow.id,
-    version: demo_flow["version"],
+    version: app_flow["version"],
     status: "published",
-    definition: demo_flow,
+    definition: app_flow,
     published_at: DateTime.utc_now() |> DateTime.truncate(:second)
   })
 end
