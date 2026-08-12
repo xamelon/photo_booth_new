@@ -18,7 +18,16 @@ defmodule BotMachine.BotCore.Runner do
       session = apply_result(session, result, current_node)
 
       if result.next_node_id do
-        walk(flow, input, registry, session, node!(flow, result.next_node_id), outputs, events, 0)
+        walk(
+          flow,
+          input,
+          registry,
+          session,
+          node!(flow, result.next_node_id),
+          outputs ++ Map.get(result, :outputs, []),
+          events,
+          0
+        )
       else
         %{
           session: %{session | current_node_id: current_node["id"]},
