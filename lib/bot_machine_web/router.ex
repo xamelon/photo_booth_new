@@ -59,6 +59,9 @@ defmodule BotMachineWeb.Router do
     get "/bot/channels", BotController, :channels
     post "/bot/channels/vk", BotController, :create_vk
     post "/bot/channels/vk/:connection_id", BotController, :save_vk
+    post "/bot/channels/telegram", BotController, :create_telegram
+    post "/bot/channels/telegram/:connection_id", BotController, :save_telegram
+    post "/bot/channels/telegram/:connection_id/provision", BotController, :provision_telegram
     post "/bot/channels/vk/:connection_id/provision", BotController, :provision_vk
     post "/bot/channels/vk/:connection_id/refresh", BotController, :refresh_vk
     post "/bot/channels/:connection_id/flows", BotController, :save_connection_flows

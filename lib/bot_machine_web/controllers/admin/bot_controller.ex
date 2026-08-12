@@ -142,7 +142,8 @@ defmodule BotMachineWeb.Admin.BotController do
       flows: matrix.flows,
       enabled_flows: matrix.enabled,
       credential: &BotMachine.BotRuntime.Credentials.for_connection/1,
-      callback_url: &BotMachine.BotRuntime.Channels.VKProvisioning.callback_url/1
+      callback_url: &BotMachine.BotRuntime.Channels.VKProvisioning.callback_url/1,
+      telegram_callback_url: &BotMachine.BotRuntime.Channels.Telegram.callback_url/1
     )
   end
 
@@ -158,6 +159,28 @@ defmodule BotMachineWeb.Admin.BotController do
       {:ok, _} -> redirect(conn, to: ~p"/admin/bot/channels")
       {:error, _} -> send_resp(conn, 422, "failed to save credentials")
     end
+  end
+
+  def create_telegram(conn, %{"telegram" => attrs}) do
+    case BotRuntime.create_telegram_connection(attrs) do
+      {:ok, _} -> redirect(conn, to: ~p"/admin/bot/channels")
+      {:error, _} -> send_resp(conn, 422, "failed to create Telegram connection")
+    end
+  end
+
+  def save_telegram(conn, %{"connection_id" => id, "telegram" => attrs}) do
+    case BotRuntime.update_telegram_connection(id, attrs) do
+      {:ok, _} -> redirect(conn, to: ~p"/admin/bot/channels")
+      {:error, _} -> send_resp(conn, 422, "failed to save credentials")
+    end
+  end
+
+  def provision_telegram(conn, %{"connection_id" => id}) do
+    id
+    |> BotRuntime.get_channel_connection!()
+    |> BotRuntime.provision_telegram_connection()
+
+    redirect(conn, to: ~p"/admin/bot/channels")
   end
 
   def provision_vk(conn, %{"connection_id" => id}) do

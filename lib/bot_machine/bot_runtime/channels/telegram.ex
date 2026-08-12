@@ -66,6 +66,61 @@ defmodule BotMachine.BotRuntime.Channels.Telegram do
     end
   end
 
+  def get_me(creds) do
+    token = creds["bot_token"]
+
+    cond do
+      token in [nil, ""] ->
+        {:error, "Telegram bot token is required"}
+
+      true ->
+        case Req.get(@api_url <> "/bot" <> token <> "/getMe") do
+          {:ok, %{status: status, body: %{"ok" => true, "result" => bot}}}
+          when status in 200..299 ->
+            {:ok,
+             %{
+               "bot_id" => to_string(bot["id"]),
+               "bot_username" => bot["username"],
+               "bot_name" => bot["first_name"]
+             }}
+
+          {:ok, %{status: status, body: body}} ->
+            {:error, "Telegram getMe HTTP #{status}: #{inspect(body)}"}
+
+          {:error, reason} ->
+            {:error, Exception.message(reason)}
+        end
+    end
+  end
+
+  def set_webhook(creds, url) do
+    token = creds["bot_token"]
+
+    cond do
+      token in [nil, ""] ->
+        {:error, "Telegram bot token is required"}
+
+      true ->
+        case Req.post(@api_url <> "/bot" <> token <> "/setWebhook",
+               json: %{"url" => url, "allowed_updates" => ["message", "callback_query"]}
+             ) do
+          {:ok, %{status: status, body: %{"ok" => true}}} when status in 200..299 ->
+            {:ok, url}
+
+          {:ok, %{status: status, body: body}} ->
+            {:error, "Telegram setWebhook HTTP #{status}: #{inspect(body)}"}
+
+          {:error, reason} ->
+            {:error, Exception.message(reason)}
+        end
+    end
+  end
+
+  def callback_url(connection) do
+    base = System.get_env("PUBLIC_URL") || BotMachineWeb.Endpoint.url()
+    String.trim_trailing(base, "/") <> "/webhooks/telegram/#{connection.public_id}"
+  end
+
   def file_url(file_id, connection) do
     token = token(connection)
 

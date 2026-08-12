@@ -94,6 +94,87 @@ defmodule BotMachine.BotRuntime do
     end
   end
 
+  def create_telegram_connection(attrs) do
+    public_id = "conn_tg_" <> (:crypto.strong_rand_bytes(5) |> Base.url_encode64(padding: false))
+
+    %BotChannelConnection{}
+    |> BotChannelConnection.changeset(%{
+      channel: "telegram",
+      name: attrs["name"] || "Telegram bot",
+      external_id: attrs["external_id"],
+      public_id: public_id,
+      status: "active",
+      credentials: %{},
+      config: %{}
+    })
+    |> Repo.insert()
+    |> case do
+      {:ok, connection} ->
+        with {:ok, connection} <-
+               BotMachine.BotRuntime.Credentials.put_connection(connection, attrs) do
+          provision_telegram_connection(connection)
+          {:ok, connection}
+        end
+
+      error ->
+        error
+    end
+  end
+
+  def update_telegram_connection(id, attrs) do
+    connection = get_channel_connection!(id)
+
+    connection
+    |> BotChannelConnection.changeset(%{
+      name: attrs["name"] || connection.name,
+      external_id: attrs["external_id"] || connection.external_id
+    })
+    |> Repo.update()
+    |> case do
+      {:ok, connection} ->
+        with {:ok, connection} <-
+               BotMachine.BotRuntime.Credentials.put_connection(connection, attrs) do
+          provision_telegram_connection(connection)
+          {:ok, connection}
+        end
+
+      error ->
+        error
+    end
+  end
+
+  def provision_telegram_connection(%BotChannelConnection{channel: "telegram"} = connection) do
+    creds = BotMachine.BotRuntime.Credentials.for_connection(connection)
+    webhook_url = BotMachine.BotRuntime.Channels.Telegram.callback_url(connection)
+
+    with {:ok, info} <- BotMachine.BotRuntime.Channels.Telegram.get_me(creds),
+         {:ok, _} <- BotMachine.BotRuntime.Channels.Telegram.set_webhook(creds, webhook_url) do
+      connection
+      |> BotChannelConnection.changeset(%{
+        external_id: info["bot_username"] || connection.external_id,
+        config:
+          Map.merge(
+            connection.config || %{},
+            Map.merge(info, %{"webhook_url" => webhook_url, "last_provision_error" => nil})
+          )
+      })
+      |> Repo.update()
+    else
+      {:error, reason} ->
+        connection
+        |> BotChannelConnection.changeset(%{
+          config:
+            Map.merge(connection.config || %{}, %{
+              "webhook_url" => webhook_url,
+              "last_provision_error" => reason
+            })
+        })
+        |> Repo.update()
+    end
+  end
+
+  def provision_telegram_connection(_connection), do: {:error, "not a Telegram connection"}
+
   def refresh_vk_connection_info(id) when is_binary(id) or is_integer(id),
     do: id |> get_channel_connection!() |> refresh_vk_connection_info()
 

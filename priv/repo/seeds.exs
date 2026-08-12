@@ -28,7 +28,9 @@ flow =
   Repo.get_by(BotFlow, slug: "photo_booth") ||
     Repo.insert!(%BotFlow{slug: "photo_booth", name: "PhotoBooth flow", status: "published"})
 
-Repo.delete_all(from t in BotTrigger, where: t.name in ["Start", "Start echo", "Start VK"])
+Repo.delete_all(
+  from t in BotTrigger, where: t.name in ["Start", "Start echo", "Start VK", "Start Telegram"]
+)
 
 app_flow = BotMachine.BotApp.flow()
 
@@ -42,7 +44,11 @@ unless Repo.get_by(BotFlowVersion, bot_flow_id: flow.id, version: app_flow["vers
   })
 end
 
-for {name, channel} <- [{"Start echo", "echo"}, {"Start VK", "vk"}] do
+for {name, channel} <- [
+      {"Start echo", "echo"},
+      {"Start VK", "vk"},
+      {"Start Telegram", "telegram"}
+    ] do
   connection =
     Repo.get_by(BotChannelConnection, channel: channel) ||
       Repo.insert!(%BotChannelConnection{
