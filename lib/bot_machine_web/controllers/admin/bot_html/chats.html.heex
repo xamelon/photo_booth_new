@@ -1,0 +1,68 @@
+<.admin_shell current_admin={@current_admin} current_path={@current_path} wide={true}>
+  <h1>Chats</h1>
+
+  <div class="chats-layout">
+    <aside class="chats-list panel">
+      <a
+        :for={chat <- @chats}
+        href={~p"/admin/bot/chats?user_id=#{chat.id}"}
+        class={["chat-list-row", to_string(chat.id) == to_string(@selected_id) && "is-active"]}
+      >
+        <div>
+          <strong>{chat.display_name || "#{chat.channel}:#{chat.external_id}"}</strong>
+          <small>{connection_label(chat)} · {chat.channel}:{chat.external_id}</small>
+        </div>
+        <p>{(chat.last_message && chat.last_message.text) || "No messages"}</p>
+        <time>{chat.last_message && format_time(chat.last_message.at)}</time>
+      </a>
+      <p :if={@chats == []} class="empty">No chats yet.</p>
+    </aside>
+
+    <section :if={@selected} class="panel chat-admin-panel chats-thread-panel">
+      <div class="chat-thread-header">
+        <div>
+          <strong>{@selected.user.display_name ||
+            "#{@selected.user.channel}:#{@selected.user.external_id}"}</strong>
+          <span>{connection_label(@selected.user)} · {@selected.user.channel}:{@selected.user.external_id}</span>
+        </div>
+        <a class="inline-link" href={~p"/admin/bot/users/#{@selected.user.id}"}>user detail</a>
+      </div>
+
+      <div class="chat-admin-thread">
+        <div
+          :for={message <- @selected.transcript}
+          class={["admin-chat-message", "admin-chat-#{message.author}"]}
+        >
+          <div class="admin-chat-bubble">
+            <div class="admin-chat-meta">
+              <strong>{message.author}</strong>
+              <span>{format_time(message.at)}</span>
+              <span>{message.status}</span>
+            </div>
+            <p>{message.text}</p>
+            <details class="raw-details">
+              <summary>json</summary>
+              <pre><code>{pretty_json(message.raw)}</code></pre>
+            </details>
+          </div>
+        </div>
+        <p :if={@selected.transcript == []} class="empty">No messages yet.</p>
+      </div>
+
+      <form
+        method="post"
+        action={~p"/admin/bot/users/#{@selected.user.id}/send"}
+        class="admin-chat-composer"
+      >
+        <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+        <input
+          type="hidden"
+          name="return_to"
+          value={~p"/admin/bot/chats?user_id=#{@selected.user.id}"}
+        />
+        <input name="text" placeholder="Reply as admin" autocomplete="off" />
+        <button>Send</button>
+      </form>
+    </section>
+  </div>
+</.admin_shell>

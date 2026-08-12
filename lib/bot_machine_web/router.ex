@@ -44,7 +44,9 @@ defmodule BotMachineWeb.Router do
     get "/app", ExampleAppController, :dashboard
     get "/bot", BotController, :dashboard
     get "/bot/users", BotController, :users
+    get "/bot/chats", BotController, :chats
     get "/bot/users/:user_id", BotController, :user_detail
+    post "/bot/users/:user_id/send", BotController, :send_user_message
     get "/bot/sessions", BotController, :sessions
     get "/bot/inbox", BotController, :inbox
     get "/bot/outbox", BotController, :outbox

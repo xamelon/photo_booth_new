@@ -21,6 +21,11 @@ defmodule BotMachineWeb.Admin.BotHTML do
           <.admin_link href={~p"/admin/bot"} icon="hero-squares-2x2-mini" current_path={@current_path}>Dashboard</.admin_link>
           <.admin_link href={~p"/admin/bot/flows"} icon="hero-share-mini" current_path={@current_path}>Flows</.admin_link>
           <.admin_link href={~p"/admin/bot/users"} icon="hero-users-mini" current_path={@current_path}>Users</.admin_link>
+          <.admin_link
+            href={~p"/admin/bot/chats"}
+            icon="hero-chat-bubble-left-right-mini"
+            current_path={@current_path}
+          >Chats</.admin_link>
 
           <div class="admin-nav-group-label">Activity</div>
           <.admin_link

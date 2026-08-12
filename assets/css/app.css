@@ -1950,3 +1950,150 @@ button {
 .raw-full-row td {
   background: #fbfbfa;
 }
+
+.chat-admin-panel {
+  display: flex;
+  height: min(680px, calc(100vh - 180px));
+  flex-direction: column;
+  padding: 0;
+}
+
+.chat-admin-thread {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+}
+
+.admin-chat-message {
+  display: flex;
+  margin-bottom: 10px;
+}
+
+.admin-chat-user {
+  justify-content: flex-start;
+}
+
+.admin-chat-bot,
+.admin-chat-admin {
+  justify-content: flex-end;
+}
+
+.admin-chat-bubble {
+  max-width: min(760px, 72%);
+  border: 1px solid rgb(55 53 47 / 0.1);
+  border-radius: 10px;
+  background: #fff;
+  padding: 8px 10px;
+}
+
+.admin-chat-user .admin-chat-bubble {
+  background: #fff;
+}
+
+.admin-chat-bot .admin-chat-bubble {
+  background: rgb(55 53 47 / 0.04);
+}
+
+.admin-chat-admin .admin-chat-bubble {
+  background: rgb(35 131 226 / 0.08);
+}
+
+.admin-chat-meta {
+  display: flex;
+  gap: 8px;
+  color: rgb(55 53 47 / 0.52);
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.admin-chat-bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.admin-chat-composer {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid rgb(55 53 47 / 0.1);
+  padding: 12px;
+}
+
+.admin-chat-composer input {
+  flex: 1;
+  min-width: 0;
+}
+
+.chats-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+  min-height: calc(100vh - 110px);
+}
+
+.chats-list {
+  margin-top: 0;
+  padding: 0;
+  overflow: auto;
+}
+
+.chat-list-row {
+  display: block;
+  border-bottom: 1px solid rgb(55 53 47 / 0.08);
+  color: inherit;
+  padding: 10px 12px;
+  text-decoration: none;
+}
+
+.chat-list-row:hover,
+.chat-list-row.is-active {
+  background: rgb(35 131 226 / 0.06);
+}
+
+.chat-list-row small,
+.chat-list-row time {
+  display: block;
+  color: rgb(55 53 47 / 0.52);
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.chat-list-row p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 6px 0 0;
+  color: rgb(55 53 47 / 0.72);
+  font-size: 13px;
+}
+
+.chats-thread-panel {
+  height: calc(100vh - 110px);
+  margin-top: 0;
+}
+
+.chat-thread-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgb(55 53 47 / 0.1);
+  padding: 12px;
+}
+
+.chat-thread-header span {
+  display: block;
+  color: rgb(55 53 47 / 0.52);
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .chats-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .chats-list,
+  .chats-thread-panel {
+    max-height: none;
+    height: auto;
+  }
+}

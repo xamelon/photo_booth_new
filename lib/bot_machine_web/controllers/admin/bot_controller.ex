@@ -11,10 +11,31 @@ defmodule BotMachineWeb.Admin.BotController do
   def users(conn, _params),
     do: render(conn, :users, users: BotRuntime.list_users())
 
+  def chats(conn, params) do
+    chats = BotRuntime.list_chats()
+    selected_id = params["user_id"] || (List.first(chats) && to_string(List.first(chats).id))
+    selected = selected_id && BotRuntime.get_user_detail(selected_id)
+
+    render(conn, :chats, chats: chats, selected: selected, selected_id: selected_id)
+  end
+
   def user_detail(conn, %{"user_id" => user_id}) do
     case BotRuntime.get_user_detail(user_id) do
       nil -> send_resp(conn, 404, "bot user not found")
       user -> render(conn, :user_detail, user: user)
+    end
+  end
+
+  def send_user_message(conn, %{"user_id" => user_id, "text" => text} = params) do
+    return_to = params["return_to"] || ~p"/admin/bot/users/#{user_id}"
+
+    case BotRuntime.admin_send_message(user_id, text) do
+      {:ok, _} ->
+        BotRuntime.process_pending_outbox()
+        redirect(conn, to: return_to)
+
+      {:error, _} ->
+        redirect(conn, to: return_to)
     end
   end
 

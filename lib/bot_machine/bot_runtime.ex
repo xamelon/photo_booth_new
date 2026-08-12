@@ -240,6 +240,23 @@ defmodule BotMachine.BotRuntime do
     |> Enum.map(&Map.put(&1, :active_session, active_session_for_user(&1.id)))
   end
 
+  def list_chats do
+    Repo.all(
+      from u in BotUser,
+        left_join: c in assoc(u, :bot_channel_connection),
+        preload: [bot_channel_connection: c],
+        order_by: [desc: u.updated_at],
+        limit: 100
+    )
+    |> Enum.map(fn user ->
+      Map.put(user, :last_message, chat_transcript(user, 1) |> List.last())
+    end)
+    |> Enum.sort_by(
+      &((&1.last_message && &1.last_message.at) || &1.updated_at),
+      {:desc, DateTime}
+    )
+  end
+
   def get_user_detail(id) do
     user = Repo.get(BotUser, id) |> Repo.preload(:bot_channel_connection)
 
@@ -272,8 +289,86 @@ defmodule BotMachine.BotRuntime do
             limit: 30
         )
 
-      %{user: user, sessions: sessions, inbox: inbox, outbox: outbox}
+      %{
+        user: user,
+        sessions: sessions,
+        inbox: inbox,
+        outbox: outbox,
+        transcript: chat_transcript(user)
+      }
     end
+  end
+
+  def admin_send_message(user_id, text) do
+    text = String.trim(text || "")
+
+    with false <- text == "",
+         %BotUser{} = user <- Repo.get(BotUser, user_id) do
+      %OutboxMessage{}
+      |> OutboxMessage.changeset(%{
+        bot_channel_connection_id: user.bot_channel_connection_id,
+        channel: user.channel,
+        external_id: user.external_id,
+        idempotency_key: "admin:#{user.id}:#{System.unique_integer([:positive])}",
+        payload: %{"type" => "message", "text" => text, "source" => "admin"},
+        status: "pending"
+      })
+      |> Repo.insert()
+    else
+      true -> {:error, :empty_message}
+      nil -> {:error, :user_not_found}
+    end
+  end
+
+  def chat_transcript(user, limit \\ 200) do
+    inbox =
+      Repo.all(
+        from e in InboxEvent,
+          where:
+            e.bot_channel_connection_id == ^user.bot_channel_connection_id and
+              e.external_id == ^user.external_id,
+          order_by: [desc: e.inserted_at],
+          limit: ^limit
+      )
+      |> Enum.map(&inbox_to_chat_message/1)
+
+    outbox =
+      Repo.all(
+        from m in OutboxMessage,
+          where:
+            m.bot_channel_connection_id == ^user.bot_channel_connection_id and
+              m.external_id == ^user.external_id,
+          order_by: [desc: m.inserted_at],
+          limit: ^limit
+      )
+      |> Enum.map(&outbox_to_chat_message/1)
+
+    (inbox ++ outbox)
+    |> Enum.sort_by(& &1.at, {:asc, DateTime})
+    |> Enum.take(-limit)
+  end
+
+  defp inbox_to_chat_message(event) do
+    %{
+      author: "user",
+      text:
+        event.payload["text"] || event.payload["button_label"] || event.payload["payload"] || "—",
+      status: event.status,
+      at: event.inserted_at,
+      raw: event.payload
+    }
+  end
+
+  defp outbox_to_chat_message(message) do
+    source = message.payload["source"] || "bot"
+
+    %{
+      author: source,
+      text: message.payload["text"] || "—",
+      status: message.status,
+      at: message.inserted_at,
+      raw: message.payload
+    }
   end
 
   def list_sessions(filters \\ %{}) do
