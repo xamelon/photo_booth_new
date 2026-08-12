@@ -9,5 +9,8 @@ defmodule BotMachine.BotRuntime.Channels do
   def send(%{channel: "vk"} = connection, payload),
     do: BotMachine.BotRuntime.Channels.VK.send(connection, payload)
 
+  def send(%{channel: "telegram"} = connection, payload),
+    do: BotMachine.BotRuntime.Channels.Telegram.send(connection, payload)
+
   def send(%{channel: channel}, _payload), do: {:error, "unknown channel #{channel}"}
 end

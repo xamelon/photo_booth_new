@@ -53,6 +53,28 @@ curl -X POST http://localhost:4000/webhooks/echo \
 - `lib/bot_machine/bot_core/*` - pure runner/registry/validator, no DB.
 - `lib/bot_machine/bot_runtime.ex` - SQLite inbox/outbox/session runtime.
 
+## Telegram
+
+Webhook URL:
+
+```text
+POST /webhooks/telegram
+POST /webhooks/telegram/:connection_public_id
+```
+
+Credentials can be stored on a `telegram` channel connection or provided via env:
+
+```bash
+TELEGRAM_BOT_TOKEN=...
+```
+
+Set the webhook with Telegram Bot API, for example:
+
+```bash
+curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
+  -d "url=https://YOUR_DOMAIN/webhooks/telegram"
+```
+
 ## VK
 
 Admin UI:

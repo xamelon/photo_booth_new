@@ -83,6 +83,8 @@ defmodule BotMachineWeb.Router do
     post "/echo", WebhookController, :echo
     post "/vk", VKWebhookController, :callback
     post "/vk/:connection_public_id", VKWebhookController, :callback
+    post "/telegram", TelegramWebhookController, :callback
+    post "/telegram/:connection_public_id", TelegramWebhookController, :callback
   end
 
   # Enable LiveDashboard in development

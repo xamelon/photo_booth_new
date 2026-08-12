@@ -97,6 +97,12 @@ defmodule BotMachine.BotRuntime.Credentials do
     end
   end
 
+  defp env_credentials("telegram") do
+    if token = System.get_env("TELEGRAM_BOT_TOKEN") do
+      %{"bot_token" => token}
+    end
+  end
+
   defp env_credentials(_), do: nil
 
   defp encrypt_data(attrs) do
