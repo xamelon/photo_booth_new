@@ -1,5 +1,5 @@
 defmodule PhotoBoothBot do
-  alias BotMachine.BotCore.{Registry, Renderer}
+  alias BotMachine.BotCore.Registry
   alias BotMachine.BotRuntime
   alias BotMachine.Repo
   alias PhotoBoothBot.GenerationJob
@@ -30,7 +30,6 @@ defmodule PhotoBoothBot do
 
   def registry do
     Registry.new()
-    |> Registry.node("photo_input", &photo_input_enter/2, &photo_input_receive/2)
     |> Registry.node("generation_wait", &generation_wait_enter/2, &generation_wait_receive/2)
     |> Registry.action("prepare_generation", &prepare_generation/2)
   end
@@ -38,7 +37,7 @@ defmodule PhotoBoothBot do
   def flow do
     %{
       "id" => "photo_booth",
-      "version" => 4,
+      "version" => 5,
       "start_node_id" => "welcome",
       "nodes" => [
         %{
@@ -51,7 +50,8 @@ defmodule PhotoBoothBot do
         },
         %{
           "id" => "ask_edit_photo",
-          "type" => "photo_input",
+          "type" => "input",
+          "input_type" => "photo",
           "input_key" => "photo_url",
           "prompt" => "🖼️ Пришлите фотографию, которую хотите отредактировать.",
           "next" => "ask_edit_prompt"
@@ -76,7 +76,8 @@ defmodule PhotoBoothBot do
         },
         %{
           "id" => "ask_birthday_photo",
-          "type" => "photo_input",
+          "type" => "input",
+          "input_type" => "photo",
           "input_key" => "photo_url",
           "prompt" => "🎉 Пришлите фотографию, и я сделаю из неё открытку на день рождения.",
           "next" => "prepare_birthday"
@@ -95,7 +96,8 @@ defmodule PhotoBoothBot do
         },
         %{
           "id" => "ask_restore_photo",
-          "type" => "photo_input",
+          "type" => "input",
+          "input_type" => "photo",
           "input_key" => "photo_url",
           "prompt" =>
             "🧩 Пришлите старую или повреждённую фотографию, и я постараюсь её восстановить.",
@@ -138,58 +140,6 @@ defmodule PhotoBoothBot do
         %{"id" => "end", "type" => "end"}
       ]
     }
-  end
-
-  defp photo_input_enter(%{input: input, session: session}, node) do
-    %{
-      outputs: [
-        %{
-          "type" => "message",
-          "channel" => input["channel"],
-          "external_id" => input["external_id"],
-          "text" => Renderer.render(node["prompt"] || "Пришлите фотографию.", session.context),
-          "buttons" => [],
-          "keyboard_mode" => "inline",
-          "buttons_per_row" => 3
-        }
-      ]
-    }
-  end
-
-  defp photo_input_receive(%{input: input, session: session}, node) do
-    case first_photo(input) do
-      nil ->
-        %{
-          outputs: [
-            %{
-              "type" => "message",
-              "channel" => input["channel"],
-              "external_id" => input["external_id"],
-              "text" => "📷 Нужна именно фотография. Пришлите её следующим сообщением.",
-              "buttons" => [],
-              "keyboard_mode" => "inline",
-              "buttons_per_row" => 3
-            }
-          ]
-        }
-
-      photo ->
-        %{
-          context: Map.put(session.context, node["input_key"], photo),
-          next_node_id: node["next"]
-        }
-    end
-  end
-
-  defp first_photo(input) do
-    input
-    |> Map.get("attachments", [])
-    |> Enum.find_value(fn
-      %{"type" => "photo", "url" => url} when is_binary(url) and url != "" -> url
-      %{"type" => "photo", "ref" => ref} when is_binary(ref) and ref != "" -> ref
-      url when is_binary(url) and url != "" -> url
-      _ -> nil
-    end)
   end
 
   defp generation_wait_enter(%{input: input, session: session}, _node) do

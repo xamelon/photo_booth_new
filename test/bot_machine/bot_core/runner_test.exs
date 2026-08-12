@@ -51,7 +51,7 @@ defmodule BotMachine.BotCore.RunnerTest do
       channel: "echo",
       external_id: "1",
       flow_id: "photo_booth",
-      flow_version: 4,
+      flow_version: 5,
       current_node_id: "generation_wait",
       context: %{},
       completed: false
