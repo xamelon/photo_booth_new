@@ -104,6 +104,16 @@ Prompts the user and stores the next user message/payload in context.
   "input_key": "name",
   "next": "remember_name"
 }
+
+{
+  "id": "ask_photo",
+  "type": "input",
+  "input_type": "photo",
+  "prompt": "Send a photo",
+  "retry_prompt": "Need a photo, please send one.",
+  "input_key": "photo_url",
+  "next": "next_node"
+}
 ```
 
 Required:
@@ -113,6 +123,8 @@ Required:
 Optional:
 
 - `prompt`: message sent before waiting for input
+- `input_type`: `text`/absent stores text or payload; `photo` stores the first inbound photo `url`/`ref`
+- `retry_prompt`: message sent when `input_type: photo` receives no photo
 - `next`: target after input is received
 
 ## Action node

@@ -76,6 +76,30 @@ defmodule BotMachine.BotCore.StandardNodes do
     %{outputs: outputs}
   end
 
+  def input_receive(%{input: input, session: session}, %{"input_type" => "photo"} = node) do
+    case first_photo(input) do
+      nil ->
+        %{
+          outputs: [
+            %{
+              "type" => "message",
+              "channel" => input["channel"],
+              "external_id" => input["external_id"],
+              "text" =>
+                node["retry_prompt"] ||
+                  "📷 Нужна именно фотография. Пришлите её следующим сообщением.",
+              "buttons" => [],
+              "keyboard_mode" => "inline",
+              "buttons_per_row" => 3
+            }
+          ]
+        }
+
+      photo ->
+        %{context: Map.put(session.context, node["input_key"], photo), next_node_id: node["next"]}
+    end
+  end
+
   def input_receive(%{input: input, session: session}, node) do
     value = input["payload"] || input["text"]
     %{context: Map.put(session.context, node["input_key"], value), next_node_id: node["next"]}
@@ -87,6 +111,17 @@ defmodule BotMachine.BotCore.StandardNodes do
   end
 
   def end_enter(_ctx, _node), do: %{completed: true}
+
+  defp first_photo(input) do
+    input
+    |> Map.get("attachments", [])
+    |> Enum.find_value(fn
+      %{"type" => "photo", "url" => url} when is_binary(url) and url != "" -> url
+      %{"type" => "photo", "ref" => ref} when is_binary(ref) and ref != "" -> ref
+      url when is_binary(url) and url != "" -> url
+      _ -> nil
+    end)
+  end
 
   defp attachments(node, context) do
     node
