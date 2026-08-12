@@ -4,8 +4,8 @@ defmodule BotMachine.BotCore.RunnerTest do
   alias BotMachine.BotCore.Runner
 
   test "runs buttons, input, actions, condition, end" do
-    flow = BotMachineExampleApp.flow()
-    registry = BotMachineExampleApp.registry()
+    flow = PhotoBoothBot.flow()
+    registry = PhotoBoothBot.registry()
 
     first = Runner.run(flow, input("/start"), registry)
 

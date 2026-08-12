@@ -41,7 +41,7 @@ defmodule BotMachineWeb.Router do
   scope "/admin", BotMachineWeb.Admin do
     pipe_through [:browser, :admin]
 
-    get "/app", ExampleAppController, :dashboard
+    get "/app", AppController, :dashboard
     get "/bot", BotController, :dashboard
     get "/bot/users", BotController, :users
     get "/bot/chats", BotController, :chats

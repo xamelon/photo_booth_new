@@ -12,7 +12,7 @@ permissions:
 env:
   # Replace for each real bot project, for example:
   # ghcr.io/my-org/pizza-bot
-  IMAGE_NAME: ghcr.io/YOUR_ORG/YOUR_APP
+  IMAGE_NAME: ghcr.io/xamelon/photo-booth-new
 
 jobs:
   build:

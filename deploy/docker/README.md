@@ -53,7 +53,7 @@ cp .github/workflows/docker-image.yml.example .github/workflows/docker-image.yml
 Edit:
 
 ```yaml
-IMAGE_NAME: ghcr.io/YOUR_ORG/YOUR_APP
+IMAGE_NAME: ghcr.io/xamelon/photo-booth-new
 ```
 
 On the VPS:

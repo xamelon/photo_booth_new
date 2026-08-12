@@ -1,4 +1,4 @@
-defmodule BotMachineWeb.Admin.ExampleAppController do
+defmodule BotMachineWeb.Admin.AppController do
   use BotMachineWeb, :controller
 
   plug :assign_current_path

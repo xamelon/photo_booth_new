@@ -6,9 +6,9 @@ services:
     ports:
       - "${HOST_PORT:-4000}:4000"
     volumes:
-      - bot_machine_data:/app/data
-      - bot_machine_storage:/app/storage
+      - photo_booth_bot_data:/app/data
+      - photo_booth_bot_storage:/app/storage
 
 volumes:
-  bot_machine_data:
-  bot_machine_storage:
+  photo_booth_bot_data:
+  photo_booth_bot_storage:

@@ -1,4 +1,4 @@
-# BotMachineExampleAppWeb
+# PhotoBoothBotWeb
 
 Deletable demo admin UI.
 

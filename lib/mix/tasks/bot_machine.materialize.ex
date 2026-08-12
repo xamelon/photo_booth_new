@@ -13,9 +13,9 @@ defmodule Mix.Tasks.BotMachine.Materialize do
 
   The task replaces:
 
-    * `lib/bot_machine_example_app` with your app logic folder
-    * `lib/bot_machine_example_app_web` with your app admin UI folder
-    * `BotMachineExampleApp` with your app module
+    * `lib/photo_booth_bot` with your app logic folder
+    * `lib/photo_booth_bot_web` with your app admin UI folder
+    * `PhotoBoothBot` with your app module
     * GHCR and compose placeholders with your image/volume names
   """
 
@@ -85,15 +85,15 @@ defmodule Mix.Tasks.BotMachine.Materialize do
   end
 
   defp ensure_example_exists! do
-    unless File.dir?("lib/bot_machine_example_app") and
-             File.dir?("lib/bot_machine_example_app_web") do
+    unless File.dir?("lib/photo_booth_bot") and
+             File.dir?("lib/photo_booth_bot_web") do
       Mix.raise("example app folders not found; this project may already be materialized")
     end
   end
 
   defp rename_example(app_dir, app_dir_web) do
-    File.rename!("lib/bot_machine_example_app", "lib/#{app_dir}")
-    File.rename!("lib/bot_machine_example_app_web", "lib/#{app_dir_web}")
+    File.rename!("lib/photo_booth_bot", "lib/#{app_dir}")
+    File.rename!("lib/photo_booth_bot_web", "lib/#{app_dir_web}")
     File.rename!("lib/#{app_dir}/example_app.ex", "lib/#{app_dir}/app.ex")
 
     File.rename!(
@@ -114,18 +114,18 @@ defmodule Mix.Tasks.BotMachine.Materialize do
 
   defp replace_all(app_module, app_web_module, app_dir, app_dir_web, image_name) do
     replacements = %{
-      "BotMachineExampleApp" => app_module,
-      "BotMachineExampleAppWeb" => app_web_module,
-      "BotMachineWeb.Admin.ExampleAppController" => "BotMachineWeb.Admin.AppController",
-      "BotMachineWeb.Admin.ExampleAppHTML" => "BotMachineWeb.Admin.AppHTML",
-      "ExampleAppController" => "AppController",
-      "ExampleAppHTML" => "AppHTML",
-      "example_app_html/*" => "app_html/*",
-      "bot_machine_example_app_web" => app_dir_web,
-      "bot_machine_example_app" => app_dir,
-      "ghcr.io/YOUR_ORG/YOUR_APP" => image_name,
-      "bot_machine_data" => "#{app_dir}_data",
-      "bot_machine_storage" => "#{app_dir}_storage"
+      "PhotoBoothBot" => app_module,
+      "PhotoBoothBotWeb" => app_web_module,
+      "BotMachineWeb.Admin.AppController" => "BotMachineWeb.Admin.AppController",
+      "BotMachineWeb.Admin.AppHTML" => "BotMachineWeb.Admin.AppHTML",
+      "AppController" => "AppController",
+      "AppHTML" => "AppHTML",
+      "app_html/*" => "app_html/*",
+      "photo_booth_bot_web" => app_dir_web,
+      "photo_booth_bot" => app_dir,
+      "ghcr.io/xamelon/photo-booth-new" => image_name,
+      "photo_booth_bot_data" => "#{app_dir}_data",
+      "photo_booth_bot_storage" => "#{app_dir}_storage"
     }
 
     files()

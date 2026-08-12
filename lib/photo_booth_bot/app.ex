@@ -1,4 +1,4 @@
-defmodule BotMachineExampleApp do
+defmodule PhotoBoothBot do
   alias BotMachine.BotCore.Registry
 
   def registry do

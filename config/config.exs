@@ -9,7 +9,8 @@ import Config
 
 config :bot_machine,
   ecto_repos: [BotMachine.Repo],
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  bot_app: PhotoBoothBot
 
 # Configures the endpoint
 config :bot_machine, BotMachineWeb.Endpoint,

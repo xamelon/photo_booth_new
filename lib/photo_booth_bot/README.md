@@ -1,4 +1,4 @@
-# BotMachineExampleApp
+# PhotoBoothBot
 
 Deletable demo bot logic.
 

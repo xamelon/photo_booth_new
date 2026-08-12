@@ -6,8 +6,8 @@ This is a reusable Phoenix/SQLite bot template, not one final bot.
 
 - `lib/bot_machine/` is generic bot engine/runtime code.
 - `lib/bot_machine_web/` is generic admin/core UI.
-- `lib/bot_machine_example_app/` is deletable demo bot logic.
-- `lib/bot_machine_example_app_web/` is deletable demo app-specific admin UI.
+- `lib/photo_booth_bot/` is deletable demo bot logic.
+- `lib/photo_booth_bot_web/` is deletable demo app-specific admin UI.
 - Do not put project/business-specific code into `BotCore` or generic runtime.
 
 ## App-specific bots
