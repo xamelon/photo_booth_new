@@ -31,7 +31,7 @@ defmodule BotMachine.BotCore.RunnerTest do
 
     fourth = Runner.run(flow, input("Добавь кинематографичный свет"), registry, third.session)
     refute fourth.session.completed
-    assert fourth.session.current_node_id == "generation_wait"
+    assert fourth.session.current_node_id == "generation_accepted"
     assert fourth.session.context["generation_title"] == "Редактирование фото"
     assert fourth.session.context["generation_prompt"] == "Добавь кинематографичный свет"
 
@@ -43,7 +43,7 @@ defmodule BotMachine.BotCore.RunnerTest do
              "pending"
   end
 
-  test "generation wait handles completed event" do
+  test "photo input retry output does not require next node" do
     flow = PhotoBoothBot.flow()
     registry = PhotoBoothBot.registry()
 
@@ -51,17 +51,62 @@ defmodule BotMachine.BotCore.RunnerTest do
       channel: "echo",
       external_id: "1",
       flow_id: "photo_booth",
-      flow_version: 5,
-      current_node_id: "generation_wait",
+      flow_version: 6,
+      current_node_id: "ask_edit_photo",
       context: %{},
       completed: false
     }
 
-    result =
-      Runner.run(flow, generation_done_input("https://example.com/result.jpg"), registry, session)
+    result = Runner.run(flow, input("not a photo"), registry, session)
 
-    assert result.session.completed
-    assert [%{"attachments" => [%{"url" => "https://example.com/result.jpg"}]}] = result.outputs
+    assert result.session.current_node_id == "ask_edit_photo"
+
+    assert [%{"text" => "📷 Нужна именно фотография. Пришлите её следующим сообщением."}] =
+             result.outputs
+  end
+
+  test "notify-only generation event sends result and preserves parked node" do
+    flow = PhotoBoothBot.flow()
+    registry = PhotoBoothBot.registry()
+
+    session = %{
+      channel: "echo",
+      external_id: "1",
+      flow_id: "photo_booth",
+      flow_version: 6,
+      current_node_id: "ask_edit_prompt",
+      context: %{"edit_prompt" => "old draft"},
+      completed: false
+    }
+
+    trigger = %{
+      "start_node_id" => "act_generation_completed_notify",
+      "session_mode" => "notify_only"
+    }
+
+    result =
+      Runner.run(
+        flow,
+        domain_event_input("photo_generation.completed", %{
+          "generation_job_id" => 123,
+          "image_url" => "https://example.com/result.jpg"
+        }),
+        registry,
+        session,
+        trigger
+      )
+
+    assert result.session.current_node_id == "ask_edit_prompt"
+    refute result.session.completed
+
+    assert [output] = result.outputs
+    assert output["text"] == "✨ Фото готово!"
+
+    assert output["attachments"] == [
+             %{"type" => "photo", "url" => "https://example.com/result.jpg"}
+           ]
+
+    assert output["button_rows"] != []
   end
 
   defp input(text),
@@ -70,12 +115,12 @@ defmodule BotMachine.BotCore.RunnerTest do
   defp photo_input(url),
     do: Map.put(input(""), "attachments", [%{"type" => "photo", "url" => url}])
 
-  defp generation_done_input(url),
+  defp domain_event_input(event, payload),
     do:
       input("")
       |> Map.merge(%{
-        "kind" => "system_event",
-        "event_type" => "photo_generation_completed",
-        "image_url" => url
+        "kind" => "domain_event",
+        "event" => event,
+        "payload" => payload
       })
 end

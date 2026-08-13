@@ -30,14 +30,15 @@ defmodule PhotoBoothBot do
 
   def registry do
     Registry.new()
-    |> Registry.node("generation_wait", &generation_wait_enter/2, &generation_wait_receive/2)
+    |> Registry.node("generation_wait", &generation_wait_enter/2)
     |> Registry.action("prepare_generation", &prepare_generation/2)
+    |> Registry.action("prepare_generation_result", &prepare_generation_result/2)
   end
 
   def flow do
     %{
       "id" => "photo_booth",
-      "version" => 5,
+      "version" => 6,
       "start_node_id" => "welcome",
       "nodes" => [
         %{
@@ -117,7 +118,41 @@ defmodule PhotoBoothBot do
         %{
           "id" => "generation_wait",
           "type" => "generation_wait",
-          "next" => "end"
+          "next" => "generation_accepted"
+        },
+        %{
+          "id" => "generation_accepted",
+          "type" => "message",
+          "text" => "✨ Приняла заявку: {{generation_title}}. Запускаю генерацию."
+        },
+        %{
+          "id" => "act_generation_completed_notify",
+          "type" => "action",
+          "action" => "prepare_generation_result",
+          "next" => "generation_completed_notify"
+        },
+        %{
+          "id" => "generation_completed_notify",
+          "type" => "message",
+          "text" => "✨ Фото готово!",
+          "attachments" => [%{"type" => "photo", "url" => "{{generation_result_url}}"}],
+          "keyboard_mode" => "reply",
+          "button_rows" => @menu_buttons,
+          "buttons_per_row" => 2
+        },
+        %{
+          "id" => "act_generation_failed_notify",
+          "type" => "action",
+          "action" => "prepare_generation_result",
+          "next" => "generation_failed_notify"
+        },
+        %{
+          "id" => "generation_failed_notify",
+          "type" => "message",
+          "text" => "😔 Не получилось сгенерировать фото. Попробуйте ещё раз.",
+          "keyboard_mode" => "reply",
+          "button_rows" => @menu_buttons,
+          "buttons_per_row" => 2
         },
         %{
           "id" => "free_photos",
@@ -142,7 +177,7 @@ defmodule PhotoBoothBot do
     }
   end
 
-  defp generation_wait_enter(%{input: input, session: session}, _node) do
+  defp generation_wait_enter(%{input: input, session: session}, node) do
     job =
       %GenerationJob{}
       |> GenerationJob.changeset(%{
@@ -159,75 +194,7 @@ defmodule PhotoBoothBot do
 
     %{
       context: Map.put(session.context, "generation_job_id", job.id),
-      outputs: [
-        %{
-          "type" => "message",
-          "channel" => input["channel"],
-          "external_id" => input["external_id"],
-          "text" =>
-            "✨ Приняла заявку: #{session.context["generation_title"]}. Запускаю генерацию.",
-          "buttons" => [],
-          "keyboard_mode" => "inline",
-          "buttons_per_row" => 3
-        }
-      ]
-    }
-  end
-
-  defp generation_wait_receive(
-         %{input: %{"event_type" => "photo_generation_completed"} = input},
-         node
-       ) do
-    %{
-      outputs: [
-        %{
-          "type" => "message",
-          "channel" => input["channel"],
-          "external_id" => input["external_id"],
-          "text" => "✨ Фото готово!",
-          "attachments" => [%{"type" => "photo", "url" => input["image_url"]}],
-          "button_rows" => @menu_buttons,
-          "keyboard_mode" => "reply",
-          "buttons_per_row" => 2
-        }
-      ],
       next_node_id: node["next"]
-    }
-  end
-
-  defp generation_wait_receive(
-         %{input: %{"event_type" => "photo_generation_failed"} = input},
-         node
-       ) do
-    %{
-      outputs: [
-        %{
-          "type" => "message",
-          "channel" => input["channel"],
-          "external_id" => input["external_id"],
-          "text" => "😔 Не получилось сгенерировать фото. Попробуйте ещё раз.",
-          "button_rows" => @menu_buttons,
-          "keyboard_mode" => "reply",
-          "buttons_per_row" => 2
-        }
-      ],
-      next_node_id: node["next"]
-    }
-  end
-
-  defp generation_wait_receive(%{input: input}, _node) do
-    %{
-      outputs: [
-        %{
-          "type" => "message",
-          "channel" => input["channel"],
-          "external_id" => input["external_id"],
-          "text" => "⏳ Генерация уже идёт. Немного подождите.",
-          "buttons" => [],
-          "keyboard_mode" => "inline",
-          "buttons_per_row" => 3
-        }
-      ]
     }
   end
 
@@ -243,6 +210,19 @@ defmodule PhotoBoothBot do
           "generation_mode" => params["mode"],
           "generation_title" => params["title"],
           "generation_prompt" => prompt
+        })
+    }
+  end
+
+  defp prepare_generation_result(%{input: input, session: session}, _params) do
+    payload = input["payload"] || %{}
+
+    %{
+      context:
+        Map.merge(session.context, %{
+          "generation_job_id" => payload["generation_job_id"] || input["generation_job_id"],
+          "generation_result_url" => payload["image_url"] || input["image_url"],
+          "generation_error" => payload["error"] || input["error"]
         })
     }
   end

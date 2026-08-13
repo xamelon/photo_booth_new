@@ -42,34 +42,41 @@ unless Repo.get_by(BotFlowVersion, bot_flow_id: flow.id, version: app_flow["vers
   })
 end
 
-for {name, channel} <- [{"Start echo", "echo"}] do
-  connection =
-    Repo.get_by(BotChannelConnection, channel: channel) ||
-      Repo.insert!(%BotChannelConnection{
-        channel: channel,
-        name: "#{String.upcase(channel)} default",
-        external_id: if(channel == "echo", do: "sandbox"),
-        public_id: "conn_#{channel}",
-        status: "active",
-        credentials: %{},
-        config: %{}
-      })
-
-  Repo.get_by(BotFlowConnection,
-    bot_flow_id: flow.id,
-    bot_channel_connection_id: connection.id
-  ) ||
-    Repo.insert!(%BotFlowConnection{
-      bot_flow_id: flow.id,
-      bot_channel_connection_id: connection.id,
-      enabled: true,
-      priority: 0,
+connection =
+  Repo.get_by(BotChannelConnection, channel: "echo") ||
+    Repo.insert!(%BotChannelConnection{
+      channel: "echo",
+      name: "ECHO default",
+      external_id: "sandbox",
+      public_id: "conn_echo",
+      status: "active",
+      credentials: %{},
       config: %{}
     })
 
-  attrs = %{
+Repo.get_by(BotFlowConnection,
+  bot_flow_id: flow.id,
+  bot_channel_connection_id: connection.id
+) ||
+  Repo.insert!(%BotFlowConnection{
     bot_flow_id: flow.id,
-    name: name,
+    bot_channel_connection_id: connection.id,
+    enabled: true,
+    priority: 0,
+    config: %{}
+  })
+
+upsert_trigger = fn attrs ->
+  case Repo.get_by(BotTrigger, bot_flow_id: flow.id, name: attrs.name) do
+    nil -> %BotTrigger{} |> BotTrigger.changeset(attrs) |> Repo.insert!()
+    trigger -> trigger |> BotTrigger.changeset(attrs) |> Repo.update!()
+  end
+end
+
+for channel <- ["echo", "vk", "telegram"] do
+  upsert_trigger.(%{
+    bot_flow_id: flow.id,
+    name: "Start #{channel}",
     channel: channel,
     type: "command",
     match: %{"command" => "start"},
@@ -77,10 +84,49 @@ for {name, channel} <- [{"Start echo", "echo"}] do
     session_mode: "restart",
     priority: 100,
     enabled: true
-  }
+  })
 
-  case Repo.get_by(BotTrigger, bot_flow_id: flow.id, name: name) do
-    nil -> %BotTrigger{} |> BotTrigger.changeset(attrs) |> Repo.insert!()
-    trigger -> trigger |> BotTrigger.changeset(attrs) |> Repo.update!()
+  for {payload, label, node_id} <- [
+        {"edit_photo", "✏️ Отредактировать фото", "ask_edit_photo"},
+        {"birthday_postcard", "🎂 Открытка на день рождения", "ask_birthday_photo"},
+        {"photo_restoration", "🧩 Реставрация фото", "ask_restore_photo"},
+        {"free_photos", "🎁 Как получить фото бесплатно", "free_photos"},
+        {"balance", "💰 Баланс", "balance"}
+      ] do
+    upsert_trigger.(%{
+      bot_flow_id: flow.id,
+      name: "Menu #{channel} #{payload}",
+      channel: channel,
+      type: "payload",
+      match: %{"payload" => payload, "text" => label},
+      start_node_id: node_id,
+      session_mode: "start_or_jump",
+      priority: 90,
+      enabled: true
+    })
   end
+
+  upsert_trigger.(%{
+    bot_flow_id: flow.id,
+    name: "Generation completed #{channel}",
+    channel: channel,
+    type: "event",
+    match: %{"event" => "photo_generation.completed"},
+    start_node_id: "act_generation_completed_notify",
+    session_mode: "notify_only",
+    priority: 80,
+    enabled: true
+  })
+
+  upsert_trigger.(%{
+    bot_flow_id: flow.id,
+    name: "Generation failed #{channel}",
+    channel: channel,
+    type: "event",
+    match: %{"event" => "photo_generation.failed"},
+    start_node_id: "act_generation_failed_notify",
+    session_mode: "notify_only",
+    priority: 80,
+    enabled: true
+  })
 end

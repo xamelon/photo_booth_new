@@ -63,7 +63,7 @@ defmodule PhotoBoothBot.GenerationWorker do
 
         {:completed, result_url} ->
           job = update_job(job, %{status: "completed", result_url: result_url, last_error: nil})
-          enqueue_event(job, "photo_generation_completed", %{"image_url" => result_url})
+          enqueue_event(job, "photo_generation.completed", %{"image_url" => result_url})
 
         {:error, reason} ->
           fail(job, reason)
@@ -101,14 +101,15 @@ defmodule PhotoBoothBot.GenerationWorker do
         last_error: to_string(reason)
       })
 
-    enqueue_event(job, "photo_generation_failed", %{"error" => to_string(reason)})
+    enqueue_event(job, "photo_generation.failed", %{"error" => to_string(reason)})
   end
 
   defp enqueue_event(job, event_type, extra) do
     payload =
       Map.merge(extra, %{
-        "kind" => "system_event",
-        "event_type" => event_type,
+        "kind" => "domain_event",
+        "event" => event_type,
+        "payload" => Map.merge(extra, %{"generation_job_id" => job.id}),
         "generation_job_id" => job.id,
         "bot_channel_connection_id" => job.bot_channel_connection_id,
         "channel" => job.channel,
