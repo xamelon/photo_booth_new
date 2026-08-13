@@ -28,7 +28,22 @@ flow =
   Repo.get_by(BotFlow, slug: "photo_booth") ||
     Repo.insert!(%BotFlow{slug: "photo_booth", name: "PhotoBooth flow", status: "published"})
 
-Repo.delete_all(from t in BotTrigger, where: t.name in ["Start", "Start echo"])
+legacy_trigger_names =
+  for channel <- ["echo", "vk", "telegram"],
+      name <- [
+        "Start #{channel}",
+        "Menu #{channel} edit_photo",
+        "Menu #{channel} birthday_postcard",
+        "Menu #{channel} photo_restoration",
+        "Menu #{channel} free_photos",
+        "Menu #{channel} balance",
+        "Generation completed #{channel}",
+        "Generation failed #{channel}"
+      ],
+      do: name
+
+legacy_trigger_names = ["Start echo" | legacy_trigger_names]
+Repo.delete_all(from t in BotTrigger, where: t.name in ^legacy_trigger_names)
 
 app_flow = BotMachine.BotApp.flow()
 
@@ -73,60 +88,58 @@ upsert_trigger = fn attrs ->
   end
 end
 
-for channel <- ["echo", "vk", "telegram"] do
+upsert_trigger.(%{
+  bot_flow_id: flow.id,
+  name: "Start",
+  channel: "*",
+  type: "command",
+  match: %{"command" => "start"},
+  start_node_id: "welcome",
+  session_mode: "restart",
+  priority: 100,
+  enabled: true
+})
+
+for {payload, label, node_id} <- [
+      {"edit_photo", "✏️ Отредактировать фото", "ask_edit_photo"},
+      {"birthday_postcard", "🎂 Открытка на день рождения", "ask_birthday_photo"},
+      {"photo_restoration", "🧩 Реставрация фото", "ask_restore_photo"},
+      {"free_photos", "🎁 Как получить фото бесплатно", "free_photos"},
+      {"balance", "💰 Баланс", "balance"}
+    ] do
   upsert_trigger.(%{
     bot_flow_id: flow.id,
-    name: "Start #{channel}",
-    channel: channel,
-    type: "command",
-    match: %{"command" => "start"},
-    start_node_id: "welcome",
-    session_mode: "restart",
-    priority: 100,
-    enabled: true
-  })
-
-  for {payload, label, node_id} <- [
-        {"edit_photo", "✏️ Отредактировать фото", "ask_edit_photo"},
-        {"birthday_postcard", "🎂 Открытка на день рождения", "ask_birthday_photo"},
-        {"photo_restoration", "🧩 Реставрация фото", "ask_restore_photo"},
-        {"free_photos", "🎁 Как получить фото бесплатно", "free_photos"},
-        {"balance", "💰 Баланс", "balance"}
-      ] do
-    upsert_trigger.(%{
-      bot_flow_id: flow.id,
-      name: "Menu #{channel} #{payload}",
-      channel: channel,
-      type: "payload",
-      match: %{"payload" => payload, "text" => label},
-      start_node_id: node_id,
-      session_mode: "start_or_jump",
-      priority: 90,
-      enabled: true
-    })
-  end
-
-  upsert_trigger.(%{
-    bot_flow_id: flow.id,
-    name: "Generation completed #{channel}",
-    channel: channel,
-    type: "event",
-    match: %{"event" => "photo_generation.completed"},
-    start_node_id: "act_generation_completed_notify",
-    session_mode: "notify_only",
-    priority: 80,
-    enabled: true
-  })
-
-  upsert_trigger.(%{
-    bot_flow_id: flow.id,
-    name: "Generation failed #{channel}",
-    channel: channel,
-    type: "event",
-    match: %{"event" => "photo_generation.failed"},
-    start_node_id: "act_generation_failed_notify",
-    session_mode: "notify_only",
-    priority: 80,
+    name: "Menu #{payload}",
+    channel: "*",
+    type: "payload",
+    match: %{"payload" => payload, "text" => label},
+    start_node_id: node_id,
+    session_mode: "start_or_jump",
+    priority: 90,
     enabled: true
   })
 end
+
+upsert_trigger.(%{
+  bot_flow_id: flow.id,
+  name: "Generation completed",
+  channel: "*",
+  type: "event",
+  match: %{"event" => "photo_generation.completed"},
+  start_node_id: "act_generation_completed_notify",
+  session_mode: "notify_only",
+  priority: 80,
+  enabled: true
+})
+
+upsert_trigger.(%{
+  bot_flow_id: flow.id,
+  name: "Generation failed",
+  channel: "*",
+  type: "event",
+  match: %{"event" => "photo_generation.failed"},
+  start_node_id: "act_generation_failed_notify",
+  session_mode: "notify_only",
+  priority: 80,
+  enabled: true
+})

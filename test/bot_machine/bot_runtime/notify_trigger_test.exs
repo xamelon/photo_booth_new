@@ -47,7 +47,7 @@ defmodule BotMachine.BotRuntime.NotifyTriggerTest do
     Repo.insert!(%BotTrigger{
       bot_flow_id: flow.id,
       name: "Generation completed",
-      channel: "echo",
+      channel: "*",
       type: "event",
       match: %{"event" => "photo_generation.completed"},
       start_node_id: "act_generation_completed_notify",
