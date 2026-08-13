@@ -193,6 +193,26 @@ Completes the session.
 { "id": "end", "type": "end" }
 ```
 
+## Triggers
+
+Triggers live in DB (`bot_triggers`) and can start or jump into a flow.
+
+- `channel`: concrete channel such as `telegram`/`vk`/`echo`, or `*` for all channels.
+- Channel-specific triggers win over global `*` triggers when priority is the same.
+- Use concrete channels only when behavior really differs by platform.
+
+Example global menu trigger:
+
+```json
+{
+  "channel": "*",
+  "type": "payload",
+  "match": { "payload": "balance", "text": "💰 Баланс" },
+  "start_node_id": "balance",
+  "session_mode": "start_or_jump"
+}
+```
+
 ## Validation
 
 Runtime validation lives in:

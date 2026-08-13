@@ -1,9 +1,9 @@
 defmodule BotMachine.BotCore.TriggerMatcher do
   def match(input, triggers) do
     triggers
-    |> Enum.filter(&(&1["enabled"] && &1["channel"] == input["channel"]))
+    |> Enum.filter(&(&1["enabled"] && &1["channel"] in [input["channel"], "*"]))
     |> Enum.filter(&matches?(input, &1))
-    |> Enum.sort_by(&(&1["priority"] || 0), :desc)
+    |> Enum.sort_by(&{&1["priority"] || 0, channel_specificity(&1)}, :desc)
     |> List.first()
   end
 
@@ -56,6 +56,9 @@ defmodule BotMachine.BotCore.TriggerMatcher do
        do: type == kind_to_type(kind)
 
   defp matches?(_, _), do: false
+
+  defp channel_specificity(%{"channel" => "*"}), do: 0
+  defp channel_specificity(_trigger), do: 1
 
   defp kind_to_type("domain_event"), do: "event"
   defp kind_to_type("system_event"), do: "event"

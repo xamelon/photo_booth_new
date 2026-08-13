@@ -971,8 +971,8 @@ defmodule BotMachine.BotRuntime do
           on: fc.bot_flow_id == t.bot_flow_id,
           where:
             fc.bot_channel_connection_id == ^connection.id and fc.enabled == true and
-              t.channel == ^connection.channel and t.enabled == true,
-          order_by: [desc: t.priority]
+              t.channel in [^connection.channel, "*"] and t.enabled == true,
+          order_by: [desc: t.priority, desc: t.channel]
       )
 
     matched = TriggerMatcher.match(input, Enum.map(triggers, &trigger_to_map/1))

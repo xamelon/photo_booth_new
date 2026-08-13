@@ -35,6 +35,40 @@ defmodule BotMachine.BotCore.TriggerMatcherTest do
            ) == trigger
   end
 
+  test "matches global triggers" do
+    trigger = %{
+      "id" => "global-start",
+      "enabled" => true,
+      "channel" => "*",
+      "type" => "command",
+      "match" => %{"command" => "start"},
+      "priority" => 0
+    }
+
+    assert TriggerMatcher.match(
+             %{"kind" => "user_message", "channel" => "telegram", "text" => "/start"},
+             [trigger]
+           ) == trigger
+  end
+
+  test "prefers channel-specific trigger over global trigger at same priority" do
+    global = %{
+      "id" => "global-start",
+      "enabled" => true,
+      "channel" => "*",
+      "type" => "command",
+      "match" => %{"command" => "start"},
+      "priority" => 10
+    }
+
+    specific = %{global | "id" => "telegram-start", "channel" => "telegram"}
+
+    assert TriggerMatcher.match(
+             %{"kind" => "user_message", "channel" => "telegram", "text" => "/start"},
+             [global, specific]
+           ) == specific
+  end
+
   test "matches domain event triggers" do
     trigger = %{
       "id" => "generation-completed",
