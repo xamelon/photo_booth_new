@@ -23,6 +23,7 @@ defmodule PhotoBoothBot.Balance do
     field :external_id, :string
     field :photos_remaining, :integer, default: @initial_free_photos
     field :photos_spent, :integer, default: 0
+    field :payment_email, :string
     timestamps(type: :utc_datetime)
   end
 
@@ -33,7 +34,8 @@ defmodule PhotoBoothBot.Balance do
       :channel,
       :external_id,
       :photos_remaining,
-      :photos_spent
+      :photos_spent,
+      :payment_email
     ])
     |> validate_required([
       :bot_channel_connection_id,
@@ -71,6 +73,14 @@ defmodule PhotoBoothBot.Balance do
     else
       {:error, :insufficient_balance}
     end
+  end
+
+  def put_payment_email(connection_id, channel, external_id, email) do
+    balance = get_or_create(connection_id, channel, external_id)
+
+    balance
+    |> changeset(%{payment_email: email})
+    |> Repo.update!()
   end
 
   def refund_photo(connection_id, channel, external_id) do

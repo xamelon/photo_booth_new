@@ -29,6 +29,17 @@ defmodule PhotoBoothBot.BalanceTest do
              end)
   end
 
+  test "stores payment email" do
+    connection = BotRuntime.default_connection("echo")
+
+    balance = Balance.put_payment_email(connection.id, "echo", "email-1", "user@example.com")
+
+    assert balance.payment_email == "user@example.com"
+
+    assert Balance.get_or_create(connection.id, "echo", "email-1").payment_email ==
+             "user@example.com"
+  end
+
   test "credits YooKassa package idempotently" do
     connection = BotRuntime.default_connection("echo")
 

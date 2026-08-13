@@ -50,7 +50,7 @@ defmodule PhotoBoothBot do
   def flow do
     %{
       "id" => "photo_booth",
-      "version" => 9,
+      "version" => 10,
       "start_node_id" => "welcome",
       "nodes" => [
         %{
@@ -358,18 +358,28 @@ defmodule PhotoBoothBot do
     %{context: Map.put(session.context, "photo_balance", balance.photos_remaining)}
   end
 
-  defp prepare_topup(%{session: session}, params) do
+  defp prepare_topup(%{input: input, session: session}, params) do
     package = Balance.package(params["package_code"])
 
-    %{
-      context:
-        Map.merge(session.context, %{
-          "payment_package_code" => package["code"],
-          "payment_package_label" => package["label"],
-          "payment_package_photos" => package["photo_count"],
-          "payment_amount" => package["amount_value"]
-        })
-    }
+    balance =
+      input
+      |> connection_id()
+      |> Balance.get_or_create(input["channel"], input["external_id"])
+
+    context =
+      Map.merge(session.context, %{
+        "payment_package_code" => package["code"],
+        "payment_package_label" => package["label"],
+        "payment_package_photos" => package["photo_count"],
+        "payment_amount" => package["amount_value"],
+        "payment_email" => session.context["payment_email"] || balance.payment_email
+      })
+
+    if valid_email?(context["payment_email"] || "") do
+      %{context: context, next_node_id: "create_payment"}
+    else
+      %{context: context}
+    end
   end
 
   defp create_payment(%{input: input, session: session}, _params) do
@@ -385,6 +395,8 @@ defmodule PhotoBoothBot do
         %{next_node_id: "payment_unavailable"}
 
       true ->
+        Balance.put_payment_email(connection_id, input["channel"], input["external_id"], email)
+
         case YooKassa.create_payment(%{
                email: email,
                amount_value: package["amount_value"],

@@ -65,7 +65,7 @@ defmodule BotMachine.BotCore.RunnerTest do
       channel: "echo",
       external_id: "1",
       flow_id: "photo_booth",
-      flow_version: 9,
+      flow_version: 10,
       current_node_id: "generation_wait",
       context: %{
         "generation_mode" => "edit",
@@ -91,6 +91,51 @@ defmodule BotMachine.BotCore.RunnerTest do
     assert Repo.aggregate(GenerationJob, :count) == 0
   end
 
+  test "top-up reuses saved payment email" do
+    old_shop_id = System.get_env("YOOKASSA_SHOP_ID")
+    old_secret = System.get_env("YOOKASSA_SECRET_KEY")
+    System.delete_env("YOOKASSA_SHOP_ID")
+    System.delete_env("YOOKASSA_SECRET_KEY")
+
+    on_exit(fn ->
+      if old_shop_id, do: System.put_env("YOOKASSA_SHOP_ID", old_shop_id)
+      if old_secret, do: System.put_env("YOOKASSA_SECRET_KEY", old_secret)
+    end)
+
+    flow = PhotoBoothBot.flow()
+    registry = PhotoBoothBot.registry()
+    connection = BotRuntime.default_connection("echo")
+
+    %Balance{}
+    |> Balance.changeset(%{
+      bot_channel_connection_id: connection.id,
+      channel: "echo",
+      external_id: "1",
+      photos_remaining: 0,
+      photos_spent: 1,
+      payment_email: "saved@example.com"
+    })
+    |> Repo.insert!()
+
+    session = %{
+      channel: "echo",
+      external_id: "1",
+      flow_id: "photo_booth",
+      flow_version: 10,
+      current_node_id: "topup_photo_1",
+      context: %{},
+      completed: false
+    }
+
+    result = Runner.run(flow, input(""), registry, session)
+
+    assert result.session.context["payment_email"] == "saved@example.com"
+
+    assert Enum.map(result.outputs, & &1["text"]) == [
+             "😔 Оплата сейчас временно недоступна. Попробуйте чуть позже."
+           ]
+  end
+
   test "photo input retry output does not require next node" do
     flow = PhotoBoothBot.flow()
     registry = PhotoBoothBot.registry()
@@ -99,7 +144,7 @@ defmodule BotMachine.BotCore.RunnerTest do
       channel: "echo",
       external_id: "1",
       flow_id: "photo_booth",
-      flow_version: 9,
+      flow_version: 10,
       current_node_id: "ask_edit_photo",
       context: %{},
       completed: false
@@ -121,7 +166,7 @@ defmodule BotMachine.BotCore.RunnerTest do
       channel: "echo",
       external_id: "1",
       flow_id: "photo_booth",
-      flow_version: 9,
+      flow_version: 10,
       current_node_id: "ask_edit_prompt",
       context: %{"edit_prompt" => "old draft"},
       completed: false
@@ -176,7 +221,7 @@ defmodule BotMachine.BotCore.RunnerTest do
       channel: "echo",
       external_id: "1",
       flow_id: "photo_booth",
-      flow_version: 9,
+      flow_version: 10,
       current_node_id: "payment_created",
       context: %{
         "resume_after_payment" => "generation_wait",
@@ -229,7 +274,7 @@ defmodule BotMachine.BotCore.RunnerTest do
       channel: "echo",
       external_id: "1",
       flow_id: "photo_booth",
-      flow_version: 9,
+      flow_version: 10,
       current_node_id: "payment_created",
       context: %{},
       completed: false
