@@ -37,6 +37,10 @@ legacy_trigger_names =
         "Menu #{channel} photo_restoration",
         "Menu #{channel} free_photos",
         "Menu #{channel} balance",
+        "Menu #{channel} topup_photo_1",
+        "Menu #{channel} topup_photo_3",
+        "Menu #{channel} topup_photo_5",
+        "Payment succeeded #{channel}",
         "Generation completed #{channel}",
         "Generation failed #{channel}"
       ],
@@ -105,7 +109,10 @@ for {payload, label, node_id} <- [
       {"birthday_postcard", "🎂 Открытка на день рождения", "ask_birthday_photo"},
       {"photo_restoration", "🧩 Реставрация фото", "ask_restore_photo"},
       {"free_photos", "🎁 Как получить фото бесплатно", "free_photos"},
-      {"balance", "💰 Баланс", "balance"}
+      {"balance", "💰 Баланс", "balance"},
+      {"topup_photo_1", "1 фото · 49 ₽", "topup_photo_1"},
+      {"topup_photo_3", "3 фото · 129 ₽", "topup_photo_3"},
+      {"topup_photo_5", "5 фото · 199 ₽", "topup_photo_5"}
     ] do
   upsert_trigger.(%{
     bot_flow_id: flow.id,
@@ -127,6 +134,18 @@ upsert_trigger.(%{
   type: "event",
   match: %{"event" => "photo_generation.completed"},
   start_node_id: "act_generation_completed_notify",
+  session_mode: "notify_only",
+  priority: 80,
+  enabled: true
+})
+
+upsert_trigger.(%{
+  bot_flow_id: flow.id,
+  name: "Payment succeeded",
+  channel: "*",
+  type: "event",
+  match: %{"event" => "payment.yookassa.succeeded"},
+  start_node_id: "act_payment_success_notify",
   session_mode: "notify_only",
   priority: 80,
   enabled: true

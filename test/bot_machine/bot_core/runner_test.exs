@@ -65,7 +65,7 @@ defmodule BotMachine.BotCore.RunnerTest do
       channel: "echo",
       external_id: "1",
       flow_id: "photo_booth",
-      flow_version: 7,
+      flow_version: 8,
       current_node_id: "generation_wait",
       context: %{
         "generation_mode" => "edit",
@@ -93,7 +93,7 @@ defmodule BotMachine.BotCore.RunnerTest do
       channel: "echo",
       external_id: "1",
       flow_id: "photo_booth",
-      flow_version: 7,
+      flow_version: 8,
       current_node_id: "ask_edit_photo",
       context: %{},
       completed: false
@@ -115,7 +115,7 @@ defmodule BotMachine.BotCore.RunnerTest do
       channel: "echo",
       external_id: "1",
       flow_id: "photo_booth",
-      flow_version: 7,
+      flow_version: 8,
       current_node_id: "ask_edit_prompt",
       context: %{"edit_prompt" => "old draft"},
       completed: false
@@ -149,6 +149,43 @@ defmodule BotMachine.BotCore.RunnerTest do
            ]
 
     assert output["button_rows"] != []
+  end
+
+  test "notify-only payment event sends credited balance" do
+    flow = PhotoBoothBot.flow()
+    registry = PhotoBoothBot.registry()
+
+    session = %{
+      channel: "echo",
+      external_id: "1",
+      flow_id: "photo_booth",
+      flow_version: 8,
+      current_node_id: "end",
+      context: %{},
+      completed: true
+    }
+
+    trigger = %{
+      "start_node_id" => "act_payment_success_notify",
+      "session_mode" => "notify_only"
+    }
+
+    result =
+      Runner.run(
+        flow,
+        domain_event_input("payment.yookassa.succeeded", %{
+          "payment_id" => "pay-1",
+          "credited_photos" => 3,
+          "photo_balance" => 4
+        }),
+        registry,
+        session,
+        trigger
+      )
+
+    assert result.session.completed
+    assert [%{"text" => text}] = result.outputs
+    assert text == "✨ Оплата прошла успешно. Добавила 3 фото. Сейчас на балансе: 4."
   end
 
   defp input(text),

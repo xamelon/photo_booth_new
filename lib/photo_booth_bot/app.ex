@@ -2,7 +2,7 @@ defmodule PhotoBoothBot do
   alias BotMachine.BotCore.Registry
   alias BotMachine.BotRuntime
   alias BotMachine.Repo
-  alias PhotoBoothBot.{Balance, GenerationJob}
+  alias PhotoBoothBot.{Balance, GenerationJob, YooKassa}
 
   @menu_buttons [
     [
@@ -28,18 +28,29 @@ defmodule PhotoBoothBot do
     [%{"label" => "💰 Баланс", "payload" => "balance", "to" => "balance"}]
   ]
 
+  @balance_buttons [
+    [
+      %{"label" => "1 фото · 49 ₽", "payload" => "topup_photo_1", "to" => "topup_photo_1"},
+      %{"label" => "3 фото · 129 ₽", "payload" => "topup_photo_3", "to" => "topup_photo_3"},
+      %{"label" => "5 фото · 199 ₽", "payload" => "topup_photo_5", "to" => "topup_photo_5"}
+    ]
+  ]
+
   def registry do
     Registry.new()
     |> Registry.node("generation_wait", &generation_wait_enter/2)
     |> Registry.action("prepare_generation", &prepare_generation/2)
     |> Registry.action("prepare_generation_result", &prepare_generation_result/2)
     |> Registry.action("prepare_balance", &prepare_balance/2)
+    |> Registry.action("prepare_topup", &prepare_topup/2)
+    |> Registry.action("create_payment", &create_payment/2)
+    |> Registry.action("prepare_payment_result", &prepare_payment_result/2)
   end
 
   def flow do
     %{
       "id" => "photo_booth",
-      "version" => 7,
+      "version" => 8,
       "start_node_id" => "welcome",
       "nodes" => [
         %{
@@ -129,8 +140,7 @@ defmodule PhotoBoothBot do
         %{
           "id" => "generation_no_balance",
           "type" => "message",
-          "text" =>
-            "💸 На балансе нет доступных фото. Скоро подключим оплату, а пока можно получить бесплатное фото через реферальную программу.",
+          "text" => "💸 На балансе нет доступных фото. Нажмите «💰 Баланс», чтобы пополнить.",
           "keyboard_mode" => "reply",
           "button_rows" => @menu_buttons,
           "next" => "end"
@@ -183,10 +193,80 @@ defmodule PhotoBoothBot do
           "id" => "balance_message",
           "type" => "message",
           "text" =>
-            "💰 Баланс: {{photo_balance}} фото. Каждая генерация списывает 1 фото. Оплату подключим следующим шагом.",
+            "💰 Баланс: {{photo_balance}} фото. Каждая генерация списывает 1 фото. Выберите пакет для пополнения.",
+          "keyboard_mode" => "inline",
+          "button_rows" => @balance_buttons,
+          "next" => "end"
+        },
+        %{
+          "id" => "topup_photo_1",
+          "type" => "action",
+          "action" => "prepare_topup",
+          "params" => %{"package_code" => "photo_1"},
+          "next" => "ask_payment_email"
+        },
+        %{
+          "id" => "topup_photo_3",
+          "type" => "action",
+          "action" => "prepare_topup",
+          "params" => %{"package_code" => "photo_3"},
+          "next" => "ask_payment_email"
+        },
+        %{
+          "id" => "topup_photo_5",
+          "type" => "action",
+          "action" => "prepare_topup",
+          "params" => %{"package_code" => "photo_5"},
+          "next" => "ask_payment_email"
+        },
+        %{
+          "id" => "ask_payment_email",
+          "type" => "input",
+          "input_key" => "payment_email",
+          "prompt" => "📧 Для чека нужен email. Отправьте его следующим сообщением.",
+          "next" => "create_payment"
+        },
+        %{
+          "id" => "create_payment",
+          "type" => "action",
+          "action" => "create_payment",
+          "next" => "payment_created"
+        },
+        %{
+          "id" => "payment_invalid_email",
+          "type" => "message",
+          "text" => "🙂 Похоже, email введён с ошибкой.",
+          "next" => "ask_payment_email"
+        },
+        %{
+          "id" => "payment_unavailable",
+          "type" => "message",
+          "text" => "😔 Оплата сейчас временно недоступна. Попробуйте чуть позже.",
           "keyboard_mode" => "reply",
           "button_rows" => @menu_buttons,
           "next" => "end"
+        },
+        %{
+          "id" => "payment_created",
+          "type" => "message",
+          "text" => "{{payment_message}}",
+          "keyboard_mode" => "reply",
+          "button_rows" => @menu_buttons,
+          "next" => "end"
+        },
+        %{
+          "id" => "act_payment_success_notify",
+          "type" => "action",
+          "action" => "prepare_payment_result",
+          "next" => "payment_success_notify"
+        },
+        %{
+          "id" => "payment_success_notify",
+          "type" => "message",
+          "text" =>
+            "✨ Оплата прошла успешно. Добавила {{credited_photos}} фото. Сейчас на балансе: {{photo_balance}}.",
+          "keyboard_mode" => "reply",
+          "button_rows" => @menu_buttons
         },
         %{"id" => "end", "type" => "end"}
       ]
@@ -256,6 +336,76 @@ defmodule PhotoBoothBot do
     %{context: Map.put(session.context, "photo_balance", balance.photos_remaining)}
   end
 
+  defp prepare_topup(%{session: session}, params) do
+    package = Balance.package(params["package_code"])
+
+    %{
+      context:
+        Map.merge(session.context, %{
+          "payment_package_code" => package["code"],
+          "payment_package_label" => package["label"],
+          "payment_package_photos" => package["photo_count"],
+          "payment_amount" => package["amount_value"]
+        })
+    }
+  end
+
+  defp create_payment(%{input: input, session: session}, _params) do
+    email = String.trim(to_string(session.context["payment_email"] || ""))
+    package = Balance.package(session.context["payment_package_code"])
+    connection_id = connection_id(input)
+
+    cond do
+      !valid_email?(email) ->
+        %{next_node_id: "payment_invalid_email"}
+
+      package == nil or !YooKassa.configured?() ->
+        %{next_node_id: "payment_unavailable"}
+
+      true ->
+        case YooKassa.create_payment(%{
+               email: email,
+               amount_value: package["amount_value"],
+               package_label: package["label"],
+               description: input["external_id"],
+               metadata: %{
+                 "bot_channel_connection_id" => to_string(connection_id),
+                 "channel" => input["channel"],
+                 "external_id" => input["external_id"],
+                 "package_code" => package["code"]
+               }
+             }) do
+          {:ok, payment} ->
+            url = get_in(payment, ["confirmation", "confirmation_url"])
+
+            %{
+              context:
+                Map.merge(session.context, %{
+                  "payment_id" => payment["id"],
+                  "payment_url" => url,
+                  "payment_message" => payment_message(package, url)
+                })
+            }
+
+          {:error, _reason} ->
+            %{next_node_id: "payment_unavailable"}
+        end
+    end
+  end
+
+  defp prepare_payment_result(%{input: input, session: session}, _params) do
+    payload = input["payload"] || %{}
+
+    %{
+      context:
+        Map.merge(session.context, %{
+          "payment_id" => payload["payment_id"] || input["payment_id"],
+          "credited_photos" => payload["credited_photos"] || input["credited_photos"],
+          "photo_balance" => payload["photo_balance"] || input["photo_balance"]
+        })
+    }
+  end
+
   defp prepare_generation_result(%{input: input, session: session}, _params) do
     payload = input["payload"] || %{}
 
@@ -267,5 +417,15 @@ defmodule PhotoBoothBot do
           "generation_error" => payload["error"] || input["error"]
         })
     }
+  end
+
+  defp valid_email?(email), do: Regex.match?(~r/^[^\s@]+@[^\s@]+\.[^\s@]+$/, email)
+
+  defp payment_message(package, url) when is_binary(url) and url != "" do
+    "💳 Вы выбрали пакет #{package["label"]} за #{package["amount_value"]} ₽. Оплатите по ссылке: #{url}"
+  end
+
+  defp payment_message(package, _url) do
+    "💳 Вы выбрали пакет #{package["label"]} за #{package["amount_value"]} ₽. Платёж создан, но ссылка не пришла от ЮKassa. Попробуйте позже."
   end
 end
