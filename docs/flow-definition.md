@@ -82,6 +82,10 @@ Buttons:
 - `payload`: stable hidden value. UI should generate/keep this, not expose it casually.
 - `to`: target node id when clicked.
 
+Channel note: Telegram `inline` keyboards carry payload through `callback_data`; Telegram
+`reply` keyboards send only visible button text as a normal message. Use payload triggers
+with a text fallback when reply keyboards should work as a global menu.
+
 Attachments:
 
 ```json
@@ -126,6 +130,13 @@ Optional:
 - `input_type`: `text`/absent stores text or payload; `photo` stores the first inbound photo `url`/`ref`
 - `retry_prompt`: message sent when `input_type: photo` receives no photo
 - `next`: target after input is received
+
+## Custom/app nodes
+
+Custom node handlers are for app-specific side effects or waits, not presentation.
+They should update context and route to standard nodes with `next_node_id`.
+Prefer a visible `next` field on the node and have the handler return that target.
+User-facing messages should be modeled as `message` nodes so the flow remains visible in the editor.
 
 ## Action node
 

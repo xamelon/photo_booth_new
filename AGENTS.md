@@ -71,6 +71,8 @@ lib/bot_machine/bot_runtime/channels/vk*.ex
 
 Button payloads are hidden/stable; do not expose payload editing in the UI unless explicitly requested.
 
+Custom/app nodes must not emit user-facing bot messages directly. They may update context, start side effects, or return `next_node_id`; visible text/buttons/attachments should be represented by standard `message` nodes so flows stay inspectable.
+
 ## Admin users vs bot users
 
 Admin users and bot users are separate. Do not merge their schemas/auth.
