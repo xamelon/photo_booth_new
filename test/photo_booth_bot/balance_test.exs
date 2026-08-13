@@ -29,6 +29,45 @@ defmodule PhotoBoothBot.BalanceTest do
              end)
   end
 
+  test "manual adjustment creates transaction" do
+    connection = BotRuntime.default_connection("echo")
+
+    balance =
+      %Balance{}
+      |> Balance.changeset(%{
+        bot_channel_connection_id: connection.id,
+        channel: "echo",
+        external_id: "manual-1",
+        photos_remaining: 1,
+        photos_spent: 0
+      })
+      |> Repo.insert!()
+
+    assert {:ok, updated} = Balance.adjust_manually(balance.id, 2, "bonus")
+    assert updated.photos_remaining == 3
+
+    assert %{source: "admin_manual", delta_photos: 2, package_code: "bonus"} =
+             Repo.one!(PhotoBoothBot.BalanceTransaction)
+  end
+
+  test "manual adjustment refuses negative balance" do
+    connection = BotRuntime.default_connection("echo")
+
+    balance =
+      %Balance{}
+      |> Balance.changeset(%{
+        bot_channel_connection_id: connection.id,
+        channel: "echo",
+        external_id: "manual-2",
+        photos_remaining: 1,
+        photos_spent: 0
+      })
+      |> Repo.insert!()
+
+    assert Balance.adjust_manually(balance.id, -2, "oops") == {:error, :invalid_delta}
+    assert Balance.get_or_create(connection.id, "echo", "manual-2").photos_remaining == 1
+  end
+
   test "stores payment email" do
     connection = BotRuntime.default_connection("echo")
 

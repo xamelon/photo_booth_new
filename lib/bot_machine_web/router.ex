@@ -42,6 +42,8 @@ defmodule BotMachineWeb.Router do
     pipe_through [:browser, :admin]
 
     get "/app", AppController, :dashboard
+    get "/app/balances", AppController, :balances
+    post "/app/balances/:balance_id/adjust", AppController, :adjust_balance
     get "/bot", BotController, :dashboard
     get "/bot/users", BotController, :users
     get "/bot/chats", BotController, :chats

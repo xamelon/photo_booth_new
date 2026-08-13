@@ -2309,6 +2309,18 @@ button {
   min-height: 34px;
 }
 
+.balance-adjust-form {
+  display: grid;
+  grid-template-columns: 72px minmax(120px, 1fr) auto;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 280px;
+}
+
+.balance-adjust-form .control {
+  height: 30px;
+}
+
 .table-scroll {
   max-height: calc(100vh - 140px);
   overflow: auto;

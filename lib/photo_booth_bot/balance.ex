@@ -131,7 +131,66 @@ defmodule PhotoBoothBot.Balance do
     end)
   end
 
+  def admin_balances do
+    balances =
+      Repo.all(
+        from b in __MODULE__,
+          join: c in assoc(b, :bot_channel_connection),
+          left_join: u in BotMachine.BotRuntime.BotUser,
+          on:
+            u.bot_channel_connection_id == b.bot_channel_connection_id and
+              u.external_id == b.external_id,
+          order_by: [asc: b.channel, asc: b.external_id],
+          select: %{balance: b, connection: c, bot_user_id: u.id, display_name: u.display_name}
+      )
+
+    transactions =
+      Repo.all(
+        from t in BalanceTransaction,
+          join: b in assoc(t, :photo_booth_balance),
+          order_by: [desc: t.inserted_at],
+          limit: 100,
+          select: %{transaction: t, balance: b}
+      )
+
+    %{balances: balances, transactions: transactions}
+  end
+
+  def adjust_manually(balance_id, delta_photos, note \\ "admin_manual_balance_adjustment") do
+    with true <- is_integer(delta_photos) and delta_photos != 0,
+         %__MODULE__{} = balance <- Repo.get(__MODULE__, balance_id),
+         true <- balance.photos_remaining + delta_photos >= 0 do
+      Repo.transaction(fn ->
+        balance =
+          balance
+          |> changeset(%{photos_remaining: balance.photos_remaining + delta_photos})
+          |> Repo.update!()
+
+        %BalanceTransaction{}
+        |> BalanceTransaction.changeset(%{
+          photo_booth_balance_id: balance.id,
+          source: "admin_manual",
+          payment_id: "admin_manual:#{Ecto.UUID.generate()}",
+          package_code:
+            String.trim(to_string(note || "")) |> blank_to("admin_manual_balance_adjustment"),
+          delta_photos: delta_photos,
+          amount_value: "0.00",
+          amount_currency: "RUB"
+        })
+        |> Repo.insert!()
+
+        balance
+      end)
+    else
+      false -> {:error, :invalid_delta}
+      nil -> {:error, :not_found}
+    end
+  end
+
   def transactions_count(payment_id) do
     Repo.aggregate(from(t in BalanceTransaction, where: t.payment_id == ^payment_id), :count)
   end
+
+  defp blank_to("", fallback), do: fallback
+  defp blank_to(value, _fallback), do: value
 end

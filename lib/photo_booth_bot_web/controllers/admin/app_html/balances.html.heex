@@ -1,0 +1,112 @@
+<BotHTML.admin_shell current_admin={@current_admin} current_path={@current_path} wide={true}>
+  <div class="page-header">
+    <div>
+      <a class="back-link" href={~p"/admin/app"}>← App</a>
+      <h1>PhotoBooth balances</h1>
+      <p class="page-subtitle">
+        Manual balance adjustments and YooKassa/admin transaction history.
+      </p>
+    </div>
+  </div>
+
+  <section class="admin-panel dense-panel">
+    <div class="section-heading">
+      <div>
+        <h2>Balances</h2>
+        <p>{@balances |> length} accounts with PhotoBooth balance rows.</p>
+      </div>
+    </div>
+
+    <div class="data-table-wrap">
+      <table class="data-table ops-table">
+        <thead>
+          <tr>
+            <th>Connection</th>
+            <th>User</th>
+            <th>Name</th>
+            <th class="num">Balance</th>
+            <th class="num">Spent</th>
+            <th>Email</th>
+            <th>Adjust</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr :for={row <- @balances}>
+            <td>{row.connection.name || row.balance.channel}</td>
+            <td>
+              <%= if row.bot_user_id do %>
+                <a class="inline-link" href={~p"/admin/bot/users/#{row.bot_user_id}"}>
+                  <code>{row.balance.channel}:{row.balance.external_id}</code>
+                </a>
+              <% else %>
+                <code>{row.balance.channel}:{row.balance.external_id}</code>
+              <% end %>
+            </td>
+            <td>{row.display_name || "—"}</td>
+            <td class="num"><strong>{row.balance.photos_remaining}</strong></td>
+            <td class="num">{row.balance.photos_spent}</td>
+            <td><code>{row.balance.payment_email || "—"}</code></td>
+            <td>
+              <form
+                method="post"
+                action={~p"/admin/app/balances/#{row.balance.id}/adjust"}
+                class="balance-adjust-form"
+              >
+                <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+                <input
+                  class="control"
+                  name="delta_photos"
+                  type="number"
+                  step="1"
+                  placeholder="+1 / -1"
+                />
+                <input class="control" name="note" placeholder="note" />
+                <button class="secondary-button compact-button">Apply</button>
+              </form>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p :if={@balances == []} class="empty">No PhotoBooth balances yet.</p>
+  </section>
+
+  <section class="admin-panel dense-panel">
+    <div class="section-heading">
+      <div>
+        <h2>Transactions</h2>
+        <p>
+          Last 100 balance transactions across payments, generations and manual admin changes.
+        </p>
+      </div>
+    </div>
+
+    <div class="data-table-wrap">
+      <table class="data-table ops-table sticky-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>User</th>
+            <th>Source</th>
+            <th>Package / note</th>
+            <th class="num">Δ photos</th>
+            <th>Payment</th>
+            <th class="num">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr :for={row <- @transactions}>
+            <td class="mono-cell">{BotHTML.format_time(row.transaction.inserted_at)}</td>
+            <td><code>{row.balance.channel}:{row.balance.external_id}</code></td>
+            <td><BotHTML.badge status={row.transaction.source} /></td>
+            <td><code>{row.transaction.package_code}</code></td>
+            <td class="num">{signed(row.transaction.delta_photos)}</td>
+            <td><code>{row.transaction.payment_id}</code></td>
+            <td class="num">{row.transaction.amount_value} {row.transaction.amount_currency}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p :if={@transactions == []} class="empty">No transactions yet.</p>
+  </section>
+</BotHTML.admin_shell>
