@@ -296,12 +296,26 @@ defmodule PhotoBoothBot do
           })
           |> Repo.insert!()
 
+        context =
+          session.context
+          |> Map.drop([
+            "resume_after_payment",
+            "payment_id",
+            "payment_url",
+            "payment_message",
+            "payment_package_code",
+            "payment_package_label",
+            "payment_package_photos",
+            "payment_amount",
+            "credited_photos"
+          ])
+          |> Map.merge(%{
+            "generation_job_id" => job.id,
+            "photo_balance" => balance.photos_remaining
+          })
+
         %{
-          context:
-            Map.merge(session.context, %{
-              "generation_job_id" => job.id,
-              "photo_balance" => balance.photos_remaining
-            }),
+          context: context,
           next_node_id: node["next"]
         }
 

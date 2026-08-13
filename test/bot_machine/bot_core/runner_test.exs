@@ -209,6 +209,8 @@ defmodule BotMachine.BotCore.RunnerTest do
     refute result.session.completed
     assert result.session.current_node_id == "generation_accepted"
     assert result.session.context["photo_balance"] == 0
+    refute Map.has_key?(result.session.context, "resume_after_payment")
+    refute Map.has_key?(result.session.context, "payment_id")
 
     assert Repo.get!(GenerationJob, result.session.context["generation_job_id"]).status ==
              "pending"
