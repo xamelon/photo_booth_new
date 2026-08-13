@@ -1667,6 +1667,15 @@ button {
   font-weight: var(--font-semibold);
 }
 
+.table-section-heading {
+  margin: 0;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+}
+
+.table-section-heading + .data-table-wrap {
+  margin-top: var(--space-1);
+}
+
 .json-block {
   overflow: auto;
   max-height: 340px;
