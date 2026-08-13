@@ -29,7 +29,12 @@ function truncate(text, max = 72) {
 
 function nodeHeight(node) {
   if (node.type === "condition" && node.condition) return 72 + (node.condition.branches.length + 1) * rowHeight
-  if (node.buttons?.length) return 90 + node.buttons.length * rowHeight
+
+  if (node.buttons?.length) {
+    const textLines = Math.min(2, Math.ceil((node.label?.length || 1) / 58))
+    return 96 + textLines * 18 + node.buttons.length * rowHeight
+  }
+
   return baseNodeHeight
 }
 
@@ -73,7 +78,7 @@ function buildGraph(viewer, selectedNodeId) {
         node.id === selectedNodeId ? "selected" : connected.has(node.id) ? "connected" : selected ? "dimmed" : "",
     },
     position: { x: 0, y: 0 },
-    style: { width: nodeWidth, height: nodeHeight(node) },
+    style: { width: nodeWidth },
   }))
 
   return { nodes: layout(nodes, edges), edges }

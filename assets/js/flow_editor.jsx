@@ -21,7 +21,13 @@ function rowHandles(node) {
 
 function nodeHeight(node) {
   if (node.type === "condition") return 104 + (node.branches || []).length * 22
-  if (node.type === "message" && rowsFromNode(node).length) return 98 + rowsFromNode(node).length * 20
+
+  if (node.type === "message") {
+    const rows = rowsFromNode(node).length
+    const textLines = Math.min(2, Math.ceil((labelFor(node).length || 1) / 58))
+    if (rows) return 96 + textLines * 18 + rows * 30
+  }
+
   return 126
 }
 
@@ -112,7 +118,7 @@ function toReactNodes(definition, selectedId) {
     type: "editorNode",
     data: { node, selection: selectionState(definition, node.id, selectedId), start: node.id === definition.start_node_id },
     position: node.position || { x: 0, y: 0 },
-    style: { width: nodeWidth, height: nodeHeight(node) },
+    style: { width: nodeWidth },
   }))
 }
 
@@ -519,7 +525,7 @@ function syncNodes(nodes, definition, selectedId) {
       type: "editorNode",
       data: { node, selection: selectionState(definition, node.id, selectedId), start: node.id === definition.start_node_id },
       position: current?.position || node.position || { x: 0, y: 0 },
-      style: { width: nodeWidth, height: nodeHeight(node) },
+      style: { width: nodeWidth },
     }
   })
 }
