@@ -48,6 +48,12 @@ defmodule BotMachine.BotRuntime do
 
   def get_channel_connection!(id), do: Repo.get!(BotChannelConnection, id)
 
+  def delete_channel_connection!(id) do
+    id
+    |> get_channel_connection!()
+    |> Repo.delete!()
+  end
+
   def create_vk_connection(attrs) do
     public_id = "conn_vk_" <> (:crypto.strong_rand_bytes(5) |> Base.url_encode64(padding: false))
 
@@ -170,6 +176,8 @@ defmodule BotMachine.BotRuntime do
             })
         })
         |> Repo.update()
+
+        {:error, reason}
     end
   end
 

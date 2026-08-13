@@ -147,6 +147,11 @@ defmodule BotMachineWeb.Admin.BotController do
     )
   end
 
+  def delete_channel(conn, %{"connection_id" => id}) do
+    BotRuntime.delete_channel_connection!(id)
+    redirect(conn, to: ~p"/admin/bot/channels")
+  end
+
   def create_vk(conn, %{"vk" => attrs}) do
     case BotRuntime.create_vk_connection(attrs) do
       {:ok, _} -> redirect(conn, to: ~p"/admin/bot/channels")
@@ -163,24 +168,34 @@ defmodule BotMachineWeb.Admin.BotController do
 
   def create_telegram(conn, %{"telegram" => attrs}) do
     case BotRuntime.create_telegram_connection(attrs) do
-      {:ok, _} -> redirect(conn, to: ~p"/admin/bot/channels")
-      {:error, _} -> send_resp(conn, 422, "failed to create Telegram connection")
+      {:ok, _} ->
+        redirect(conn, to: ~p"/admin/bot/channels")
+
+      {:error, error} ->
+        send_resp(conn, 422, "failed to create Telegram connection: #{inspect(error)}")
     end
   end
 
   def save_telegram(conn, %{"connection_id" => id, "telegram" => attrs}) do
     case BotRuntime.update_telegram_connection(id, attrs) do
-      {:ok, _} -> redirect(conn, to: ~p"/admin/bot/channels")
-      {:error, _} -> send_resp(conn, 422, "failed to save credentials")
+      {:ok, _} ->
+        redirect(conn, to: ~p"/admin/bot/channels")
+
+      {:error, error} ->
+        send_resp(conn, 422, "failed to save Telegram credentials: #{inspect(error)}")
     end
   end
 
   def provision_telegram(conn, %{"connection_id" => id}) do
-    id
-    |> BotRuntime.get_channel_connection!()
-    |> BotRuntime.provision_telegram_connection()
+    case id
+         |> BotRuntime.get_channel_connection!()
+         |> BotRuntime.provision_telegram_connection() do
+      {:ok, _} ->
+        redirect(conn, to: ~p"/admin/bot/channels")
 
-    redirect(conn, to: ~p"/admin/bot/channels")
+      {:error, error} ->
+        send_resp(conn, 422, "failed to provision Telegram webhook: #{inspect(error)}")
+    end
   end
 
   def provision_vk(conn, %{"connection_id" => id}) do

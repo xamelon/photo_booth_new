@@ -1,7 +1,12 @@
 <.admin_shell current_admin={@current_admin} current_path={@current_path}>
-  <h1>Bot Machine</h1>
+  <div class="page-header">
+    <div>
+      <h1>Bot Machine</h1>
+      <p class="page-subtitle">Runtime state, queues, and setup shortcuts.</p>
+    </div>
+  </div>
 
-  <div class="stats dense-stats">
+  <div class="stats dense-stats metric-strip">
     <.stat label="Users" value={@counts.bot_users} />
     <.stat label="Sessions" value={@counts.sessions} />
     <.stat label="Inbox" value={@counts.inbox} />
@@ -11,36 +16,44 @@
     <.stat label="Triggers" value={@counts.triggers} />
   </div>
 
-  <section class="panel">
-    <h2>Runtime health</h2>
-    <table class="ops-table">
-      <thead>
-        <tr>
-          <th>Queue</th><th class="num">Pending</th><th class="num">Failed</th><th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Inbox</td>
-          <td class="num">{@counts.inbox_pending}</td>
-          <td class="num danger-text">{@counts.inbox_failed}</td>
-          <td><.badge status={if @counts.inbox_failed > 0, do: "failed", else: "ok"} /></td>
-        </tr>
-        <tr>
-          <td>Outbox</td>
-          <td class="num">{@counts.outbox_pending}</td>
-          <td class="num danger-text">{@counts.outbox_failed}</td>
-          <td><.badge status={if @counts.outbox_failed > 0, do: "failed", else: "ok"} /></td>
-        </tr>
-      </tbody>
-    </table>
+  <section class="admin-panel">
+    <div class="panel-header">
+      <h2>Runtime health</h2>
+    </div>
+    <div class="data-table-wrap">
+      <table class="data-table ops-table">
+        <thead>
+          <tr>
+            <th>Queue</th><th class="num">Pending</th><th class="num">Failed</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Inbox</td>
+            <td class="num">{@counts.inbox_pending}</td>
+            <td class="num danger-text">{@counts.inbox_failed}</td>
+            <td><.badge status={if @counts.inbox_failed > 0, do: "failed", else: "ok"} /></td>
+          </tr>
+          <tr>
+            <td>Outbox</td>
+            <td class="num">{@counts.outbox_pending}</td>
+            <td class="num danger-text">{@counts.outbox_failed}</td>
+            <td><.badge status={if @counts.outbox_failed > 0, do: "failed", else: "ok"} /></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </section>
 
-  <section class="panel">
-    <h2>Echo webhook</h2>
-    <p class="hint">POST JSON to <code>/webhooks/echo</code>:</p>
-    <pre><%= ~S(curl -X POST http://localhost:4000/webhooks/echo \
+  <section class="admin-panel section-card">
+    <div class="panel-header">
+      <h2>Echo webhook</h2>
+    </div>
+    <div class="section-body">
+      <p class="hint">POST JSON to <code>/webhooks/echo</code>:</p>
+      <pre><%= ~S(curl -X POST http://localhost:4000/webhooks/echo \
   -H 'content-type: application/json' \
   -d '{"external_id":"1","text":"/start","idempotency_key":"demo-1"}') %></pre>
+    </div>
   </section>
 </.admin_shell>

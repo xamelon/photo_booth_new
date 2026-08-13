@@ -20,6 +20,7 @@
             <th>External ID</th>
             <th>Flows</th>
             <th>Webhook</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -59,13 +60,224 @@
               >copy</button>
               <span :if={connection.channel not in ["vk", "telegram"]}>—</span>
             </td>
+            <td class="row-actions">
+              <form
+                method="post"
+                action={~p"/admin/bot/channels/#{connection.id}/delete"}
+                onsubmit={"return confirm('Delete channel connection #{connection.name}? Runtime rows for this connection will be deleted too.')"}
+              >
+                <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+                <button class="danger-link-button" type="submit">Delete</button>
+              </form>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
   </section>
 
-  <section class="admin-panel">
+  <div class="channel-provider-grid">
+    <section class="admin-panel channel-provider-panel">
+      <div class="panel-header">
+        <h2>Telegram</h2>
+      </div>
+
+      <form
+        method="post"
+        action={~p"/admin/bot/channels/telegram"}
+        class="inline-form vk-create-form"
+      >
+        <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+        <label>
+          <span>Name</span>
+          <input name="telegram[name]" placeholder="Telegram bot" />
+        </label>
+        <label>
+          <span>External ID</span>
+          <input name="telegram[external_id]" placeholder="@bot_username" />
+        </label>
+        <label class="wide-field">
+          <span>Bot token</span>
+          <input
+            name="telegram[bot_token]"
+            type="password"
+            placeholder="123:ABC"
+            autocomplete="off"
+          />
+        </label>
+        <button>Create</button>
+      </form>
+
+      <div class="connection-edit-list">
+        <details
+          :for={connection <- Enum.filter(@connections, &(&1.channel == "telegram"))}
+          class="connection-edit-row"
+        >
+          <% tg = @credential.(connection) || %{} %>
+
+          <summary class="connection-meta">
+            <span class="connection-identity">
+              <strong>{connection.name}</strong>
+            </span>
+            <small>
+              token: {if tg["bot_token"], do: "configured", else: "missing"} · bot: {connection.config[
+                "bot_username"
+              ] || "—"}
+            </small>
+            <small>webhook:
+            <code>{connection.config["webhook_url"] || @telegram_callback_url.(connection)}</code></small>
+          </summary>
+
+          <form
+            method="post"
+            action={~p"/admin/bot/channels/telegram/#{connection.id}"}
+            class="inline-form connection-save-form"
+          >
+            <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+            <label>
+              <span>Name</span>
+              <input name="telegram[name]" value={connection.name} />
+            </label>
+            <label>
+              <span>External ID</span>
+              <input name="telegram[external_id]" value={connection.external_id} />
+            </label>
+            <label>
+              <span>Token</span>
+              <input
+                name="telegram[bot_token]"
+                type="password"
+                value=""
+                placeholder={if tg["bot_token"], do: "configured", else: "123:ABC"}
+                autocomplete="off"
+              />
+            </label>
+            <button class="secondary-button compact-button">Save</button>
+          </form>
+
+          <div
+            :if={connection.config["last_provision_error"] not in [nil, ""]}
+            class="channel-error compact-error"
+          >
+            <strong>Telegram webhook failed</strong>
+            <code>{connection.config["last_provision_error"]}</code>
+            <form
+              method="post"
+              action={~p"/admin/bot/channels/telegram/#{connection.id}/provision"}
+            >
+              <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+              <button class="secondary-button compact-button">Retry webhook</button>
+            </form>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <section class="admin-panel channel-provider-panel">
+      <div class="panel-header">
+        <h2>VK</h2>
+      </div>
+
+      <form method="post" action={~p"/admin/bot/channels/vk"} class="inline-form vk-create-form">
+        <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+        <label>
+          <span>Name</span>
+          <input name="vk[name]" placeholder="VK group" />
+        </label>
+        <label>
+          <span>Group ID</span>
+          <input name="vk[group_id]" placeholder="123456" />
+        </label>
+        <label class="wide-field">
+          <span>Access token</span>
+          <input
+            name="vk[group_access_token]"
+            type="password"
+            placeholder="vk1..."
+            autocomplete="off"
+          />
+        </label>
+        <button>Create</button>
+      </form>
+
+      <div class="connection-edit-list">
+        <details
+          :for={connection <- Enum.filter(@connections, &(&1.channel == "vk"))}
+          class="connection-edit-row"
+        >
+          <% vk = @credential.(connection) || %{} %>
+
+          <summary class="connection-meta">
+            <span class="connection-identity">
+              <img
+                :if={connection.config["group_photo_url"]}
+                src={connection.config["group_photo_url"]}
+                alt=""
+              />
+              <strong>{connection.config["group_name"] || connection.name}</strong>
+            </span>
+            <small>
+              token: {if vk["group_access_token"], do: "configured", else: "missing"} · server: {vk[
+                "callback_server_id"
+              ] || "—"}
+            </small>
+          </summary>
+
+          <form
+            method="post"
+            action={~p"/admin/bot/channels/vk/#{connection.id}"}
+            class="inline-form connection-save-form"
+          >
+            <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+            <label>
+              <span>Name</span>
+              <input name="vk[name]" value={connection.name} />
+            </label>
+            <label>
+              <span>Group ID</span>
+              <input name="vk[group_id]" value={vk["group_id"] || connection.external_id} />
+            </label>
+            <label>
+              <span>Confirmation</span>
+              <input name="vk[confirmation_code]" value={vk["confirmation_code"]} />
+            </label>
+            <label>
+              <span>Token</span>
+              <input
+                name="vk[group_access_token]"
+                type="password"
+                value=""
+                placeholder={if vk["group_access_token"], do: "configured", else: "vk1..."}
+                autocomplete="off"
+              />
+            </label>
+            <button class="secondary-button compact-button">Save</button>
+          </form>
+
+          <div class="connection-actions">
+            <form method="post" action={~p"/admin/bot/channels/vk/#{connection.id}/refresh"}>
+              <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+              <button class="secondary-button compact-button">Refresh</button>
+            </form>
+            <form method="post" action={~p"/admin/bot/channels/vk/#{connection.id}/provision"}>
+              <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+              <button class="secondary-button compact-button">Provision</button>
+            </form>
+          </div>
+
+          <div
+            :if={vk["last_provision_error"] not in [nil, ""]}
+            class="channel-error compact-error"
+          >
+            <strong>VK provisioning failed</strong>
+            <code>{vk["last_provision_error"]}</code>
+          </div>
+        </details>
+      </div>
+    </section>
+  </div>
+
+  <section class="admin-panel secondary-panel">
     <div class="panel-header">
       <h2>Flow routing</h2>
     </div>
@@ -104,199 +316,6 @@
 
         <button class="secondary-button compact-button">Save</button>
       </form>
-    </div>
-  </section>
-
-  <section class="admin-panel">
-    <div class="panel-header">
-      <h2>Telegram</h2>
-    </div>
-
-    <form
-      method="post"
-      action={~p"/admin/bot/channels/telegram"}
-      class="inline-form vk-create-form"
-    >
-      <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
-      <label>
-        <span>Name</span>
-        <input name="telegram[name]" placeholder="Telegram bot" />
-      </label>
-      <label>
-        <span>External ID</span>
-        <input name="telegram[external_id]" placeholder="@bot_username" />
-      </label>
-      <label class="wide-field">
-        <span>Bot token</span>
-        <input
-          name="telegram[bot_token]"
-          type="password"
-          placeholder="123:ABC"
-          autocomplete="off"
-        />
-      </label>
-      <button>Create</button>
-    </form>
-
-    <div class="connection-edit-list">
-      <div
-        :for={connection <- Enum.filter(@connections, &(&1.channel == "telegram"))}
-        class="connection-edit-row"
-      >
-        <% tg = @credential.(connection) || %{} %>
-
-        <div class="connection-meta">
-          <span class="connection-identity">
-            <strong>{connection.name}</strong>
-          </span>
-          <small>token: {if tg["bot_token"], do: "configured", else: "missing"}</small>
-          <small>bot: {connection.config["bot_username"] || "—"}</small>
-          <small>webhook:
-          <code>{connection.config["webhook_url"] || @telegram_callback_url.(connection)}</code></small>
-        </div>
-
-        <form
-          method="post"
-          action={~p"/admin/bot/channels/telegram/#{connection.id}"}
-          class="inline-form connection-save-form"
-        >
-          <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
-          <label>
-            <span>Name</span>
-            <input name="telegram[name]" value={connection.name} />
-          </label>
-          <label>
-            <span>External ID</span>
-            <input name="telegram[external_id]" value={connection.external_id} />
-          </label>
-          <label>
-            <span>Token</span>
-            <input
-              name="telegram[bot_token]"
-              type="password"
-              value=""
-              placeholder={if tg["bot_token"], do: "configured", else: "123:ABC"}
-              autocomplete="off"
-            />
-          </label>
-          <button class="secondary-button compact-button">Save</button>
-        </form>
-
-        <div class="connection-actions">
-          <form method="post" action={~p"/admin/bot/channels/telegram/#{connection.id}/provision"}>
-            <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
-            <button class="secondary-button compact-button">Provision</button>
-          </form>
-        </div>
-
-        <details
-          :if={connection.config["last_provision_error"] not in [nil, ""]}
-          class="channel-error compact-error"
-        >
-          <summary>Telegram provisioning failed</summary>
-          <code>{connection.config["last_provision_error"]}</code>
-        </details>
-      </div>
-    </div>
-  </section>
-
-  <section class="admin-panel">
-    <div class="panel-header">
-      <h2>VK</h2>
-    </div>
-
-    <form method="post" action={~p"/admin/bot/channels/vk"} class="inline-form vk-create-form">
-      <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
-      <label>
-        <span>Name</span>
-        <input name="vk[name]" placeholder="VK group" />
-      </label>
-      <label>
-        <span>Group ID</span>
-        <input name="vk[group_id]" placeholder="123456" />
-      </label>
-      <label class="wide-field">
-        <span>Access token</span>
-        <input
-          name="vk[group_access_token]"
-          type="password"
-          placeholder="vk1..."
-          autocomplete="off"
-        />
-      </label>
-      <button>Create</button>
-    </form>
-
-    <div class="connection-edit-list">
-      <div
-        :for={connection <- Enum.filter(@connections, &(&1.channel == "vk"))}
-        class="connection-edit-row"
-      >
-        <% vk = @credential.(connection) || %{} %>
-
-        <div class="connection-meta">
-          <span class="connection-identity">
-            <img
-              :if={connection.config["group_photo_url"]}
-              src={connection.config["group_photo_url"]}
-              alt=""
-            />
-            <strong>{connection.config["group_name"] || connection.name}</strong>
-          </span>
-          <small>token: {if vk["group_access_token"], do: "configured", else: "missing"}</small>
-          <small>server: {vk["callback_server_id"] || "—"}</small>
-        </div>
-
-        <form
-          method="post"
-          action={~p"/admin/bot/channels/vk/#{connection.id}"}
-          class="inline-form connection-save-form"
-        >
-          <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
-          <label>
-            <span>Name</span>
-            <input name="vk[name]" value={connection.name} />
-          </label>
-          <label>
-            <span>Group ID</span>
-            <input name="vk[group_id]" value={vk["group_id"] || connection.external_id} />
-          </label>
-          <label>
-            <span>Confirmation</span>
-            <input name="vk[confirmation_code]" value={vk["confirmation_code"]} />
-          </label>
-          <label>
-            <span>Token</span>
-            <input
-              name="vk[group_access_token]"
-              type="password"
-              value=""
-              placeholder={if vk["group_access_token"], do: "configured", else: "vk1..."}
-              autocomplete="off"
-            />
-          </label>
-          <button class="secondary-button compact-button">Save</button>
-        </form>
-
-        <div class="connection-actions">
-          <form method="post" action={~p"/admin/bot/channels/vk/#{connection.id}/refresh"}>
-            <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
-            <button class="secondary-button compact-button">Refresh</button>
-          </form>
-          <form method="post" action={~p"/admin/bot/channels/vk/#{connection.id}/provision"}>
-            <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
-            <button class="secondary-button compact-button">Provision</button>
-          </form>
-        </div>
-
-        <details
-          :if={vk["last_provision_error"] not in [nil, ""]}
-          class="channel-error compact-error"
-        >
-          <summary>VK provisioning failed</summary>
-          <code>{vk["last_provision_error"]}</code>
-        </details>
-      </div>
     </div>
   </section>
 </.admin_shell>

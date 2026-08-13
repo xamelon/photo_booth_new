@@ -1,27 +1,34 @@
 <.admin_shell current_admin={@current_admin} current_path={@current_path}>
-  <h1>Flows</h1>
+  <div class="page-header">
+    <div>
+      <h1>Flows</h1>
+      <p class="page-subtitle">Published bot flows and editable versions.</p>
+    </div>
+  </div>
 
-  <section class="panel">
-    <table>
-      <thead>
-        <tr>
-          <th>Slug</th><th>Name</th><th>Status</th><th>Flow</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr :for={flow <- @flows}>
-          <td><code>{flow.slug}</code></td>
-          <td>{flow.name}</td>
-          <td><.badge status={flow.status} /></td>
-          <td>
-            <span :for={version <- flow.versions} class="version-links">
-              <a class="inline-link" href={~p"/admin/bot/flows/#{version.id}/view"}>view</a>
-              <a class="inline-link" href={~p"/admin/bot/flows/#{version.id}/edit"}>edit</a>
-            </span>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+  <section class="admin-panel">
+    <div class="data-table-wrap">
+      <table class="data-table ops-table">
+        <thead>
+          <tr>
+            <th>Slug</th><th>Name</th><th>Status</th><th>Flow</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr :for={flow <- @flows}>
+            <td><code>{flow.slug}</code></td>
+            <td>{flow.name}</td>
+            <td><.badge status={flow.status} /></td>
+            <td>
+              <span :for={version <- flow.versions} class="version-links">
+                <a class="inline-link" href={~p"/admin/bot/flows/#{version.id}/view"}>view</a>
+                <a class="inline-link" href={~p"/admin/bot/flows/#{version.id}/edit"}>edit</a>
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     <p :if={@flows == []} class="empty">No flows yet.</p>
   </section>
 </.admin_shell>

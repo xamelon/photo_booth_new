@@ -6,44 +6,46 @@
     </div>
   </div>
 
-  <section class="panel dense-panel">
-    <table class="ops-table">
-      <thead>
-        <tr>
-          <th>Connection</th><th>User</th><th>Name</th><th class="num">Sessions</th><th>
-            Active node
-          </th><th>Last seen</th><th>
-            Status
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr :for={user <- @users}>
-          <td>{user.connection_name || user.channel}</td>
-          <td>
-            <a class="inline-link" href={~p"/admin/bot/users/#{user.id}"}>
-              <code>{user.channel}:{user.external_id}</code>
-            </a>
-          </td>
-          <td>
-            <span class="connection-identity">
-              <img
-                :if={(user.metadata || %{})["photo_url"]}
-                src={(user.metadata || %{})["photo_url"]}
-                alt=""
-              />
-              <span>{user.display_name || "—"}</span>
-            </span>
-          </td>
-          <td class="num">{user.sessions_count}</td>
-          <td>
-            <code>{(user.active_session && user.active_session.current_node_id) || "—"}</code>
-          </td>
-          <td class="mono-cell">{format_time(user.last_seen_at || user.updated_at)}</td>
-          <td><.badge status={if user.blocked_at, do: "blocked", else: "active"} /></td>
-        </tr>
-      </tbody>
-    </table>
+  <section class="admin-panel dense-panel">
+    <div class="data-table-wrap">
+      <table class="data-table ops-table">
+        <thead>
+          <tr>
+            <th>Connection</th><th>User</th><th>Name</th><th class="num">Sessions</th><th>
+              Active node
+            </th><th>Last seen</th><th>
+              Status
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr :for={user <- @users}>
+            <td>{user.connection_name || user.channel}</td>
+            <td>
+              <a class="inline-link" href={~p"/admin/bot/users/#{user.id}"}>
+                <code>{user.channel}:{user.external_id}</code>
+              </a>
+            </td>
+            <td>
+              <span class="connection-identity">
+                <img
+                  :if={(user.metadata || %{})["photo_url"]}
+                  src={(user.metadata || %{})["photo_url"]}
+                  alt=""
+                />
+                <span>{user.display_name || "—"}</span>
+              </span>
+            </td>
+            <td class="num">{user.sessions_count}</td>
+            <td>
+              <code>{(user.active_session && user.active_session.current_node_id) || "—"}</code>
+            </td>
+            <td class="mono-cell">{format_time(user.last_seen_at || user.updated_at)}</td>
+            <td><.badge status={if user.blocked_at, do: "blocked", else: "active"} /></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     <p :if={@users == []} class="empty">No bot users yet.</p>
   </section>
 </.admin_shell>

@@ -1,39 +1,59 @@
 <.admin_shell current_admin={@current_admin} current_path={@current_path} wide={true}>
-  <h1>Events</h1>
+  <div class="page-header">
+    <div>
+      <h1>Events</h1>
+      <p class="page-subtitle">Chronological bot runtime events grouped by session.</p>
+    </div>
+  </div>
 
-  <form method="get" action={~p"/admin/bot/events"} class="filter-bar">
-    <select name="connection_id">
-      <option value="">all connections</option>
-      <option
-        :for={connection <- @connections}
-        value={connection.id}
-        selected={@filters["connection_id"] == to_string(connection.id)}
-      >
-        {connection.name}
-      </option>
-    </select>
-    <select name="flow_id">
-      <option value="">all flows</option>
-      <option :for={flow <- @flows} value={flow.slug} selected={@filters["flow_id"] == flow.slug}>
-        {flow.name}
-      </option>
-    </select>
-    <select name="event_type">
-      <option value="">all event types</option>
-      <option
-        :for={type <- event_types(@events)}
-        value={type}
-        selected={@filters["event_type"] == type}
-      >
-        {type}
-      </option>
-    </select>
-    <button class="secondary-button compact-button">Filter</button>
-    <a class="inline-link" href={~p"/admin/bot/events"}>clear</a>
+  <form method="get" action={~p"/admin/bot/events"} class="filter-bar filter-bar--dense">
+    <label class="field-stack field-stack--compact">
+      <span>Connection</span>
+      <select name="connection_id" class="control control--select">
+        <option value="">all connections</option>
+        <option
+          :for={connection <- @connections}
+          value={connection.id}
+          selected={@filters["connection_id"] == to_string(connection.id)}
+        >
+          {connection.name}
+        </option>
+      </select>
+    </label>
+    <label class="field-stack field-stack--compact">
+      <span>Flow</span>
+      <select name="flow_id" class="control control--select">
+        <option value="">all flows</option>
+        <option
+          :for={flow <- @flows}
+          value={flow.slug}
+          selected={@filters["flow_id"] == flow.slug}
+        >
+          {flow.name}
+        </option>
+      </select>
+    </label>
+    <label class="field-stack field-stack--compact">
+      <span>Event type</span>
+      <select name="event_type" class="control control--select">
+        <option value="">all event types</option>
+        <option
+          :for={type <- event_types(@events)}
+          value={type}
+          selected={@filters["event_type"] == type}
+        >
+          {type}
+        </option>
+      </select>
+    </label>
+    <div class="filter-actions">
+      <button class="secondary-button compact-button">Filter</button>
+      <a class="inline-link" href={~p"/admin/bot/events"}>clear</a>
+    </div>
   </form>
 
-  <section class="panel dense-panel table-scroll">
-    <table class="ops-table sticky-table">
+  <section class="admin-panel dense-panel table-scroll">
+    <table class="data-table ops-table sticky-table">
       <thead>
         <tr>
           <th>Type</th><th>Connection</th><th>Flow</th><th>Node</th><th>At</th><th>Payload</th>

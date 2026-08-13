@@ -61,6 +61,7 @@ defmodule BotMachineWeb.Router do
     post "/bot/channels/vk/:connection_id", BotController, :save_vk
     post "/bot/channels/telegram", BotController, :create_telegram
     post "/bot/channels/telegram/:connection_id", BotController, :save_telegram
+    post "/bot/channels/:connection_id/delete", BotController, :delete_channel
     post "/bot/channels/telegram/:connection_id/provision", BotController, :provision_telegram
     post "/bot/channels/vk/:connection_id/provision", BotController, :provision_vk
     post "/bot/channels/vk/:connection_id/refresh", BotController, :refresh_vk

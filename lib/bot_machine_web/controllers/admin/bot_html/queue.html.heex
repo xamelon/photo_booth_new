@@ -1,34 +1,50 @@
 <.admin_shell current_admin={@current_admin} current_path={@current_path} wide={true}>
-  <h1>{@title}</h1>
+  <div class="page-header">
+    <div>
+      <h1>{@title}</h1>
+      <p class="page-subtitle">Queued bot runtime work with payload and error detail.</p>
+    </div>
+  </div>
 
-  <form method="get" action={@path} class="filter-bar">
-    <select name="status">
-      <option value="">all statuses</option>
-      <option
-        :for={status <- ["pending", "processing", "processed", "sent", "failed"]}
-        value={status}
-        selected={@filters["status"] == status}
-      >
-        {status}
-      </option>
-    </select>
-    <select name="connection_id">
-      <option value="">all connections</option>
-      <option
-        :for={connection <- @connections}
-        value={connection.id}
-        selected={@filters["connection_id"] == to_string(connection.id)}
-      >
-        {connection.name}
-      </option>
-    </select>
-    <input name="q" value={@filters["q"]} placeholder="external id" />
-    <button class="secondary-button compact-button">Filter</button>
-    <a class="inline-link" href={@path}>clear</a>
+  <form method="get" action={@path} class="filter-bar filter-bar--dense">
+    <label class="field-stack field-stack--compact">
+      <span>Status</span>
+      <select name="status" class="control control--select">
+        <option value="">all statuses</option>
+        <option
+          :for={status <- ["pending", "processing", "processed", "sent", "failed"]}
+          value={status}
+          selected={@filters["status"] == status}
+        >
+          {status}
+        </option>
+      </select>
+    </label>
+    <label class="field-stack field-stack--compact">
+      <span>Connection</span>
+      <select name="connection_id" class="control control--select">
+        <option value="">all connections</option>
+        <option
+          :for={connection <- @connections}
+          value={connection.id}
+          selected={@filters["connection_id"] == to_string(connection.id)}
+        >
+          {connection.name}
+        </option>
+      </select>
+    </label>
+    <label class="field-stack field-stack--compact field-stack--search">
+      <span>External ID</span>
+      <input class="control" name="q" value={@filters["q"]} placeholder="external id" />
+    </label>
+    <div class="filter-actions">
+      <button class="secondary-button compact-button">Filter</button>
+      <a class="inline-link" href={@path}>clear</a>
+    </div>
   </form>
 
-  <section class="panel dense-panel table-scroll">
-    <table class="ops-table queue-table sticky-table">
+  <section class="admin-panel dense-panel table-scroll">
+    <table class="data-table ops-table queue-table sticky-table">
       <thead>
         <tr>
           <th>Status</th><th>Connection</th><th>User</th><th class="num">Attempts</th><th>
