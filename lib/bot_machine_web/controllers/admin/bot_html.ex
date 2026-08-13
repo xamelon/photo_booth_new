@@ -16,6 +16,11 @@ defmodule BotMachineWeb.Admin.BotHTML do
         <nav>
           <div class="admin-nav-group-label">Project</div>
           <.admin_link href={~p"/admin/app"} icon="hero-briefcase-mini" current_path={@current_path}>App</.admin_link>
+          <.admin_link
+            href={~p"/admin/app/balances"}
+            icon="hero-banknotes-mini"
+            current_path={@current_path}
+          >Balances</.admin_link>
 
           <div class="admin-nav-group-label">Bot</div>
           <.admin_link href={~p"/admin/bot"} icon="hero-squares-2x2-mini" current_path={@current_path}>Dashboard</.admin_link>
@@ -96,6 +101,9 @@ defmodule BotMachineWeb.Admin.BotHTML do
     />{render_slot(@inner_block)}</a>
     """
   end
+
+  defp active_link_class("/admin/app", "/admin/app"), do: "is-active"
+  defp active_link_class("/admin/app", _path), do: nil
 
   defp active_link_class("/admin/bot", "/admin/bot"), do: "is-active"
   defp active_link_class("/admin/bot", _path), do: nil
