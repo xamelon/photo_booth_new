@@ -4,7 +4,7 @@ defmodule PhotoBoothBot.GenerationWorker do
 
   alias BotMachine.BotRuntime
   alias BotMachine.Repo
-  alias PhotoBoothBot.{Fal, GenerationJob}
+  alias PhotoBoothBot.{Balance, Fal, GenerationJob}
 
   @tick_ms 2_000
   @poll_delay_seconds 5
@@ -101,6 +101,7 @@ defmodule PhotoBoothBot.GenerationWorker do
         last_error: to_string(reason)
       })
 
+    Balance.refund_photo(job.bot_channel_connection_id, job.channel, job.external_id)
     enqueue_event(job, "photo_generation.failed", %{"error" => to_string(reason)})
   end
 

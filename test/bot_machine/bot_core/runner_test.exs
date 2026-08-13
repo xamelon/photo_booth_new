@@ -2,7 +2,8 @@ defmodule BotMachine.BotCore.RunnerTest do
   use BotMachine.DataCase
 
   alias BotMachine.BotCore.Runner
-  alias PhotoBoothBot.GenerationJob
+  alias BotMachine.BotRuntime
+  alias PhotoBoothBot.{Balance, GenerationJob}
 
   test "runs photo booth edit flow until generation wait" do
     flow = PhotoBoothBot.flow()
@@ -39,8 +40,49 @@ defmodule BotMachine.BotCore.RunnerTest do
              "✨ Приняла заявку: Редактирование фото. Запускаю генерацию."
            ]
 
+    assert fourth.session.context["photo_balance"] == 0
+
     assert Repo.get!(GenerationJob, fourth.session.context["generation_job_id"]).status ==
              "pending"
+  end
+
+  test "photo booth generation stops when balance is empty" do
+    flow = PhotoBoothBot.flow()
+    registry = PhotoBoothBot.registry()
+    connection = BotRuntime.default_connection("echo")
+
+    %Balance{}
+    |> Balance.changeset(%{
+      bot_channel_connection_id: connection.id,
+      channel: "echo",
+      external_id: "1",
+      photos_remaining: 0,
+      photos_spent: 1
+    })
+    |> Repo.insert!()
+
+    session = %{
+      channel: "echo",
+      external_id: "1",
+      flow_id: "photo_booth",
+      flow_version: 7,
+      current_node_id: "generation_wait",
+      context: %{
+        "generation_mode" => "edit",
+        "generation_title" => "Редактирование фото",
+        "photo_url" => "https://example.com/photo.jpg",
+        "generation_prompt" => "test"
+      },
+      completed: false
+    }
+
+    result = Runner.run(flow, input(""), registry, session)
+
+    assert result.session.completed
+    assert result.session.context["photo_balance"] == 0
+    assert [%{"text" => text}] = result.outputs
+    assert text =~ "На балансе нет доступных фото"
+    assert Repo.aggregate(GenerationJob, :count) == 0
   end
 
   test "photo input retry output does not require next node" do
@@ -51,7 +93,7 @@ defmodule BotMachine.BotCore.RunnerTest do
       channel: "echo",
       external_id: "1",
       flow_id: "photo_booth",
-      flow_version: 6,
+      flow_version: 7,
       current_node_id: "ask_edit_photo",
       context: %{},
       completed: false
@@ -73,7 +115,7 @@ defmodule BotMachine.BotCore.RunnerTest do
       channel: "echo",
       external_id: "1",
       flow_id: "photo_booth",
-      flow_version: 6,
+      flow_version: 7,
       current_node_id: "ask_edit_prompt",
       context: %{"edit_prompt" => "old draft"},
       completed: false

@@ -2,7 +2,7 @@ defmodule PhotoBoothBot do
   alias BotMachine.BotCore.Registry
   alias BotMachine.BotRuntime
   alias BotMachine.Repo
-  alias PhotoBoothBot.GenerationJob
+  alias PhotoBoothBot.{Balance, GenerationJob}
 
   @menu_buttons [
     [
@@ -33,12 +33,13 @@ defmodule PhotoBoothBot do
     |> Registry.node("generation_wait", &generation_wait_enter/2)
     |> Registry.action("prepare_generation", &prepare_generation/2)
     |> Registry.action("prepare_generation_result", &prepare_generation_result/2)
+    |> Registry.action("prepare_balance", &prepare_balance/2)
   end
 
   def flow do
     %{
       "id" => "photo_booth",
-      "version" => 6,
+      "version" => 7,
       "start_node_id" => "welcome",
       "nodes" => [
         %{
@@ -126,6 +127,15 @@ defmodule PhotoBoothBot do
           "text" => "✨ Приняла заявку: {{generation_title}}. Запускаю генерацию."
         },
         %{
+          "id" => "generation_no_balance",
+          "type" => "message",
+          "text" =>
+            "💸 На балансе нет доступных фото. Скоро подключим оплату, а пока можно получить бесплатное фото через реферальную программу.",
+          "keyboard_mode" => "reply",
+          "button_rows" => @menu_buttons,
+          "next" => "end"
+        },
+        %{
           "id" => "act_generation_completed_notify",
           "type" => "action",
           "action" => "prepare_generation_result",
@@ -165,9 +175,15 @@ defmodule PhotoBoothBot do
         },
         %{
           "id" => "balance",
+          "type" => "action",
+          "action" => "prepare_balance",
+          "next" => "balance_message"
+        },
+        %{
+          "id" => "balance_message",
           "type" => "message",
           "text" =>
-            "💰 Баланс и пакеты подключим вместе с оплатой. Пока можно протестировать основной фото-flow.",
+            "💰 Баланс: {{photo_balance}} фото. Каждая генерация списывает 1 фото. Оплату подключим следующим шагом.",
           "keyboard_mode" => "reply",
           "button_rows" => @menu_buttons,
           "next" => "end"
@@ -178,24 +194,41 @@ defmodule PhotoBoothBot do
   end
 
   defp generation_wait_enter(%{input: input, session: session}, node) do
-    job =
-      %GenerationJob{}
-      |> GenerationJob.changeset(%{
-        bot_channel_connection_id: connection_id(input),
-        channel: input["channel"],
-        external_id: input["external_id"],
-        status: "pending",
-        mode: session.context["generation_mode"],
-        title: session.context["generation_title"],
-        photo_url: session.context["photo_url"],
-        prompt: session.context["generation_prompt"]
-      })
-      |> Repo.insert!()
+    connection_id = connection_id(input)
 
-    %{
-      context: Map.put(session.context, "generation_job_id", job.id),
-      next_node_id: node["next"]
-    }
+    case Balance.debit_photo(connection_id, input["channel"], input["external_id"]) do
+      {:ok, balance} ->
+        job =
+          %GenerationJob{}
+          |> GenerationJob.changeset(%{
+            bot_channel_connection_id: connection_id,
+            channel: input["channel"],
+            external_id: input["external_id"],
+            status: "pending",
+            mode: session.context["generation_mode"],
+            title: session.context["generation_title"],
+            photo_url: session.context["photo_url"],
+            prompt: session.context["generation_prompt"]
+          })
+          |> Repo.insert!()
+
+        %{
+          context:
+            Map.merge(session.context, %{
+              "generation_job_id" => job.id,
+              "photo_balance" => balance.photos_remaining
+            }),
+          next_node_id: node["next"]
+        }
+
+      {:error, :insufficient_balance} ->
+        balance = Balance.get_or_create(connection_id, input["channel"], input["external_id"])
+
+        %{
+          context: Map.put(session.context, "photo_balance", balance.photos_remaining),
+          next_node_id: "generation_no_balance"
+        }
+    end
   end
 
   defp connection_id(input),
@@ -212,6 +245,15 @@ defmodule PhotoBoothBot do
           "generation_prompt" => prompt
         })
     }
+  end
+
+  defp prepare_balance(%{input: input, session: session}, _params) do
+    balance =
+      input
+      |> connection_id()
+      |> Balance.get_or_create(input["channel"], input["external_id"])
+
+    %{context: Map.put(session.context, "photo_balance", balance.photos_remaining)}
   end
 
   defp prepare_generation_result(%{input: input, session: session}, _params) do
