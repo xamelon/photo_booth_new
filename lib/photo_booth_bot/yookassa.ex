@@ -23,7 +23,9 @@ defmodule PhotoBoothBot.YooKassa do
   defp call(path, opts) do
     if configured?() do
       opts =
-        Keyword.update(opts, :headers, auth_header(), &[auth_header() | &1])
+        Keyword.update(opts, :headers, [auth_header()], fn headers ->
+          [auth_header() | headers]
+        end)
 
       case Req.request(Keyword.put(opts, :url, @api_url <> path)) do
         {:ok, %{status: status, body: body}} when status in 200..299 ->
