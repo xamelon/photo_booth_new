@@ -50,7 +50,7 @@ defmodule PhotoBoothBot do
   def flow do
     %{
       "id" => "photo_booth",
-      "version" => 8,
+      "version" => 9,
       "start_node_id" => "welcome",
       "nodes" => [
         %{
@@ -140,10 +140,9 @@ defmodule PhotoBoothBot do
         %{
           "id" => "generation_no_balance",
           "type" => "message",
-          "text" => "💸 На балансе нет доступных фото. Нажмите «💰 Баланс», чтобы пополнить.",
-          "keyboard_mode" => "reply",
-          "button_rows" => @menu_buttons,
-          "next" => "end"
+          "text" =>
+            "💸 На балансе нет доступных фото. Пополните баланс — после оплаты я сразу продолжу обработку.",
+          "next" => "balance"
         },
         %{
           "id" => "act_generation_completed_notify",
@@ -195,8 +194,7 @@ defmodule PhotoBoothBot do
           "text" =>
             "💰 Баланс: {{photo_balance}} фото. Каждая генерация списывает 1 фото. Выберите пакет для пополнения.",
           "keyboard_mode" => "inline",
-          "button_rows" => @balance_buttons,
-          "next" => "end"
+          "button_rows" => @balance_buttons
         },
         %{
           "id" => "topup_photo_1",
@@ -251,14 +249,20 @@ defmodule PhotoBoothBot do
           "type" => "message",
           "text" => "{{payment_message}}",
           "keyboard_mode" => "reply",
-          "button_rows" => @menu_buttons,
-          "next" => "end"
+          "button_rows" => @menu_buttons
         },
         %{
-          "id" => "act_payment_success_notify",
+          "id" => "act_payment_succeeded",
           "type" => "action",
           "action" => "prepare_payment_result",
           "next" => "payment_success_notify"
+        },
+        %{
+          "id" => "payment_success_resume_message",
+          "type" => "message",
+          "text" =>
+            "✨ Оплата прошла успешно. Добавила {{credited_photos}} фото. Сейчас на балансе: {{photo_balance}}. Продолжаю обработку.",
+          "next" => "generation_wait"
         },
         %{
           "id" => "payment_success_notify",
@@ -305,7 +309,11 @@ defmodule PhotoBoothBot do
         balance = Balance.get_or_create(connection_id, input["channel"], input["external_id"])
 
         %{
-          context: Map.put(session.context, "photo_balance", balance.photos_remaining),
+          context:
+            Map.merge(session.context, %{
+              "photo_balance" => balance.photos_remaining,
+              "resume_after_payment" => "generation_wait"
+            }),
           next_node_id: "generation_no_balance"
         }
     end
@@ -396,13 +404,20 @@ defmodule PhotoBoothBot do
   defp prepare_payment_result(%{input: input, session: session}, _params) do
     payload = input["payload"] || %{}
 
+    context =
+      Map.merge(session.context, %{
+        "payment_id" => payload["payment_id"] || input["payment_id"],
+        "credited_photos" => payload["credited_photos"] || input["credited_photos"],
+        "photo_balance" => payload["photo_balance"] || input["photo_balance"]
+      })
+
     %{
-      context:
-        Map.merge(session.context, %{
-          "payment_id" => payload["payment_id"] || input["payment_id"],
-          "credited_photos" => payload["credited_photos"] || input["credited_photos"],
-          "photo_balance" => payload["photo_balance"] || input["photo_balance"]
-        })
+      context: context,
+      next_node_id:
+        if(context["resume_after_payment"] == "generation_wait",
+          do: "payment_success_resume_message",
+          else: "payment_success_notify"
+        )
     }
   end
 

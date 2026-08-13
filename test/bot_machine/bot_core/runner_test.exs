@@ -46,7 +46,7 @@ defmodule BotMachine.BotCore.RunnerTest do
              "pending"
   end
 
-  test "photo booth generation stops when balance is empty" do
+  test "photo booth generation pauses for payment when balance is empty" do
     flow = PhotoBoothBot.flow()
     registry = PhotoBoothBot.registry()
     connection = BotRuntime.default_connection("echo")
@@ -65,7 +65,7 @@ defmodule BotMachine.BotCore.RunnerTest do
       channel: "echo",
       external_id: "1",
       flow_id: "photo_booth",
-      flow_version: 8,
+      flow_version: 9,
       current_node_id: "generation_wait",
       context: %{
         "generation_mode" => "edit",
@@ -78,10 +78,16 @@ defmodule BotMachine.BotCore.RunnerTest do
 
     result = Runner.run(flow, input(""), registry, session)
 
-    assert result.session.completed
+    refute result.session.completed
+    assert result.session.current_node_id == "balance_message"
     assert result.session.context["photo_balance"] == 0
-    assert [%{"text" => text}] = result.outputs
-    assert text =~ "На балансе нет доступных фото"
+    assert result.session.context["resume_after_payment"] == "generation_wait"
+
+    assert Enum.map(result.outputs, & &1["text"]) == [
+             "💸 На балансе нет доступных фото. Пополните баланс — после оплаты я сразу продолжу обработку.",
+             "💰 Баланс: 0 фото. Каждая генерация списывает 1 фото. Выберите пакет для пополнения."
+           ]
+
     assert Repo.aggregate(GenerationJob, :count) == 0
   end
 
@@ -93,7 +99,7 @@ defmodule BotMachine.BotCore.RunnerTest do
       channel: "echo",
       external_id: "1",
       flow_id: "photo_booth",
-      flow_version: 8,
+      flow_version: 9,
       current_node_id: "ask_edit_photo",
       context: %{},
       completed: false
@@ -115,7 +121,7 @@ defmodule BotMachine.BotCore.RunnerTest do
       channel: "echo",
       external_id: "1",
       flow_id: "photo_booth",
-      flow_version: 8,
+      flow_version: 9,
       current_node_id: "ask_edit_prompt",
       context: %{"edit_prompt" => "old draft"},
       completed: false
@@ -151,7 +157,69 @@ defmodule BotMachine.BotCore.RunnerTest do
     assert output["button_rows"] != []
   end
 
-  test "notify-only payment event sends credited balance" do
+  test "payment event resumes parked generation" do
+    flow = PhotoBoothBot.flow()
+    registry = PhotoBoothBot.registry()
+    connection = BotRuntime.default_connection("echo")
+
+    %Balance{}
+    |> Balance.changeset(%{
+      bot_channel_connection_id: connection.id,
+      channel: "echo",
+      external_id: "1",
+      photos_remaining: 1,
+      photos_spent: 1
+    })
+    |> Repo.insert!()
+
+    session = %{
+      channel: "echo",
+      external_id: "1",
+      flow_id: "photo_booth",
+      flow_version: 9,
+      current_node_id: "payment_created",
+      context: %{
+        "resume_after_payment" => "generation_wait",
+        "generation_mode" => "edit",
+        "generation_title" => "Редактирование фото",
+        "photo_url" => "https://example.com/photo.jpg",
+        "generation_prompt" => "test"
+      },
+      completed: false
+    }
+
+    trigger = %{
+      "start_node_id" => "act_payment_succeeded",
+      "session_mode" => "start_or_jump"
+    }
+
+    result =
+      Runner.run(
+        flow,
+        domain_event_input("payment.yookassa.succeeded", %{
+          "payment_id" => "pay-1",
+          "credited_photos" => 1,
+          "photo_balance" => 1
+        }),
+        registry,
+        session,
+        trigger
+      )
+
+    refute result.session.completed
+    assert result.session.current_node_id == "generation_accepted"
+    assert result.session.context["photo_balance"] == 0
+
+    assert Repo.get!(GenerationJob, result.session.context["generation_job_id"]).status ==
+             "pending"
+
+    assert Enum.map(result.outputs, & &1["text"]) == [
+             "✨ Оплата прошла успешно. Добавила 1 фото. Сейчас на балансе: 1. Продолжаю обработку.",
+             "✨ Приняла заявку: Редактирование фото. Запускаю генерацию."
+           ]
+  end
+
+  test "payment event without parked generation sends credited balance" do
     flow = PhotoBoothBot.flow()
     registry = PhotoBoothBot.registry()
 
@@ -159,15 +227,15 @@ defmodule BotMachine.BotCore.RunnerTest do
       channel: "echo",
       external_id: "1",
       flow_id: "photo_booth",
-      flow_version: 8,
-      current_node_id: "end",
+      flow_version: 9,
+      current_node_id: "payment_created",
       context: %{},
-      completed: true
+      completed: false
     }
 
     trigger = %{
-      "start_node_id" => "act_payment_success_notify",
-      "session_mode" => "notify_only"
+      "start_node_id" => "act_payment_succeeded",
+      "session_mode" => "start_or_jump"
     }
 
     result =
@@ -183,7 +251,8 @@ defmodule BotMachine.BotCore.RunnerTest do
         trigger
       )
 
-    assert result.session.completed
+    refute result.session.completed
+    assert result.session.current_node_id == "payment_success_notify"
     assert [%{"text" => text}] = result.outputs
     assert text == "✨ Оплата прошла успешно. Добавила 3 фото. Сейчас на балансе: 4."
   end

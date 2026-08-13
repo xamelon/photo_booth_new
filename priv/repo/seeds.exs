@@ -145,8 +145,8 @@ upsert_trigger.(%{
   channel: "*",
   type: "event",
   match: %{"event" => "payment.yookassa.succeeded"},
-  start_node_id: "act_payment_success_notify",
-  session_mode: "notify_only",
+  start_node_id: "act_payment_succeeded",
+  session_mode: "start_or_jump",
   priority: 80,
   enabled: true
 })
