@@ -44,13 +44,13 @@ defmodule BotMachine.BotCore.StandardNodes do
     end
   end
 
-  def action_enter(%{registry: registry, session: session}, node) do
+  def action_enter(%{registry: registry, session: session, input: input}, node) do
     case Registry.get_action(registry, node["action"]) do
       nil ->
         raise("unknown bot action: #{node["action"]}")
 
       fun ->
-        fun.(%{session: session}, node["params"] || %{})
+        fun.(%{session: session, input: input}, node["params"] || %{})
         |> Map.put_new(:next_node_id, node["next"])
     end
   end

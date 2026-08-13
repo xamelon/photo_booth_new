@@ -5,6 +5,8 @@ defmodule BotMachine.BotCore.Runner do
 
   def run(flow, input, registry, session \\ nil, trigger \\ nil) do
     receiving? = !!session && is_nil(trigger)
+    preserve_node_id = if notify_only?(trigger) && session, do: session.current_node_id
+    preserve_completed = if notify_only?(trigger) && session, do: session.completed
     session = prepare_session(flow, input, session, trigger)
     events = [event("input_received", flow, session)]
     outputs = []
@@ -13,31 +15,34 @@ defmodule BotMachine.BotCore.Runner do
 
     handler = Registry.get_node(registry, current_node["type"])
 
-    if receiving? && handler && handler.receive do
-      result = handler.receive.(ctx(flow, input, registry, session), current_node)
-      session = apply_result(session, result, current_node)
+    result =
+      if receiving? && handler && handler.receive do
+        result = handler.receive.(ctx(flow, input, registry, session), current_node)
+        session = apply_result(session, result, current_node)
 
-      if result.next_node_id do
-        walk(
-          flow,
-          input,
-          registry,
-          session,
-          node!(flow, result.next_node_id),
-          outputs ++ Map.get(result, :outputs, []),
-          events,
-          0
-        )
+        if Map.get(result, :next_node_id) do
+          walk(
+            flow,
+            input,
+            registry,
+            session,
+            node!(flow, Map.get(result, :next_node_id)),
+            outputs ++ Map.get(result, :outputs, []),
+            events,
+            0
+          )
+        else
+          %{
+            session: %{session | current_node_id: current_node["id"]},
+            outputs: Map.get(result, :outputs, []),
+            events: Enum.reverse(events)
+          }
+        end
       else
-        %{
-          session: %{session | current_node_id: current_node["id"]},
-          outputs: Map.get(result, :outputs, []),
-          events: Enum.reverse(events)
-        }
+        walk(flow, input, registry, session, current_node, outputs, events, 0)
       end
-    else
-      walk(flow, input, registry, session, current_node, outputs, events, 0)
-    end
+
+    preserve_session(result, preserve_node_id, preserve_completed)
   end
 
   defp walk(_flow, _input, _registry, _session, _node, _outputs, _events, steps)
@@ -113,6 +118,15 @@ defmodule BotMachine.BotCore.Runner do
         current_node_id: Map.get(result, :next_node_id) || node["id"]
     }
   end
+
+  defp preserve_session(result, nil, _completed), do: result
+
+  defp preserve_session(result, node_id, completed) do
+    %{result | session: %{result.session | current_node_id: node_id, completed: completed}}
+  end
+
+  defp notify_only?(%{"session_mode" => "notify_only"}), do: true
+  defp notify_only?(_), do: false
 
   defp node!(flow, id) do
     Enum.find(flow["nodes"] || [], &(&1["id"] == id)) || raise("missing bot flow node: #{id}")
