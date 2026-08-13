@@ -4,6 +4,31 @@ defmodule PhotoBoothBot.BalanceTest do
   alias BotMachine.BotRuntime
   alias PhotoBoothBot.Balance
 
+  test "insufficient debit does not roll back caller transaction" do
+    connection = BotRuntime.default_connection("echo")
+
+    %Balance{}
+    |> Balance.changeset(%{
+      bot_channel_connection_id: connection.id,
+      channel: "echo",
+      external_id: "empty-1",
+      photos_remaining: 0,
+      photos_spent: 1
+    })
+    |> Repo.insert!()
+
+    assert {:ok, :ok} =
+             Repo.transaction(fn ->
+               assert Balance.debit_photo(connection.id, "echo", "empty-1") ==
+                        {:error, :insufficient_balance}
+
+               assert Balance.get_or_create(connection.id, "echo", "empty-1").photos_remaining ==
+                        0
+
+               :ok
+             end)
+  end
+
   test "credits YooKassa package idempotently" do
     connection = BotRuntime.default_connection("echo")
 

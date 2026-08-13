@@ -59,20 +59,18 @@ defmodule PhotoBoothBot.Balance do
   end
 
   def debit_photo(connection_id, channel, external_id) do
-    Repo.transaction(fn ->
-      balance = get_or_create(connection_id, channel, external_id)
+    balance = get_or_create(connection_id, channel, external_id)
 
-      if balance.photos_remaining > 0 do
-        balance
-        |> changeset(%{
-          photos_remaining: balance.photos_remaining - 1,
-          photos_spent: balance.photos_spent + 1
-        })
-        |> Repo.update!()
-      else
-        Repo.rollback(:insufficient_balance)
-      end
-    end)
+    if balance.photos_remaining > 0 do
+      balance
+      |> changeset(%{
+        photos_remaining: balance.photos_remaining - 1,
+        photos_spent: balance.photos_spent + 1
+      })
+      |> Repo.update()
+    else
+      {:error, :insufficient_balance}
+    end
   end
 
   def refund_photo(connection_id, channel, external_id) do
