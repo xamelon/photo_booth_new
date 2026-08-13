@@ -836,6 +836,9 @@ defmodule BotMachine.BotRuntime do
       )
 
     cond do
+      user && user_profile_changed?(user, input) ->
+        update_user_profile(user, input)
+
       user && user.display_name in [nil, ""] && connection.channel == "vk" ->
         enrich_vk_user(user, connection)
 
@@ -848,7 +851,8 @@ defmodule BotMachine.BotRuntime do
             bot_channel_connection_id: connection.id,
             channel: connection.channel,
             external_id: input["external_id"],
-            display_name: input["display_name"]
+            display_name: input["display_name"],
+            metadata: input["metadata"] || %{}
           }
           |> maybe_put_vk_user_info(connection)
 
@@ -856,6 +860,21 @@ defmodule BotMachine.BotRuntime do
         |> BotUser.changeset(attrs)
         |> Repo.insert!()
     end
+  end
+
+  defp user_profile_changed?(user, input) do
+    (input["display_name"] not in [nil, ""] and input["display_name"] != user.display_name) or
+      (is_map(input["metadata"]) and input["metadata"] != %{} and
+         Map.merge(user.metadata || %{}, input["metadata"]) != (user.metadata || %{}))
+  end
+
+  defp update_user_profile(user, input) do
+    user
+    |> BotUser.changeset(%{
+      display_name: input["display_name"] || user.display_name,
+      metadata: Map.merge(user.metadata || %{}, input["metadata"] || %{})
+    })
+    |> Repo.update!()
   end
 
   defp maybe_put_vk_user_info(attrs, %{channel: "vk"} = connection) do

@@ -9,6 +9,13 @@ defmodule BotMachine.BotRuntime.TelegramTest do
         "update_id" => 123,
         "message" => %{
           "chat" => %{"id" => 42},
+          "from" => %{
+            "id" => 7,
+            "first_name" => "Ada",
+            "last_name" => "Lovelace",
+            "username" => "ada",
+            "language_code" => "en"
+          },
           "text" => " /start ",
           "photo" => [
             %{"file_id" => "small", "file_size" => 1},
@@ -20,6 +27,14 @@ defmodule BotMachine.BotRuntime.TelegramTest do
     assert event.idempotency_key == "telegram:123"
     assert event.input["channel"] == "telegram"
     assert event.input["external_id"] == "42"
+    assert event.input["display_name"] == "Ada Lovelace"
+
+    assert event.input["metadata"] == %{
+             "telegram_user_id" => "7",
+             "username" => "ada",
+             "language_code" => "en"
+           }
+
     assert event.input["text"] == "/start"
     assert event.input["attachments"] == [%{"type" => "photo", "ref" => "large"}]
   end

@@ -242,7 +242,7 @@ defmodule BotMachine.BotRuntime.Channels.VK do
   def save_message_photo(_uploaded, _token), do: {:error, "VK upload returned invalid response"}
 
   defp post_vk(method, params, token) do
-    case Req.post("https://api.vk.ru/method/#{method}",
+    case Req.post("https://api.vk.com/method/#{method}",
            headers: [{"authorization", "Bearer #{token}"}],
            form: params
          ) do

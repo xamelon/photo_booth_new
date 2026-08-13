@@ -9,15 +9,17 @@ defmodule BotMachine.BotRuntime.Channels.Telegram do
     if chat_id do
       %{
         idempotency_key: "telegram:#{update_id}",
-        input: %{
-          "kind" => "user_message",
-          "channel" => "telegram",
-          "external_id" => to_string(chat_id),
-          "text" =>
-            blank_to_nil(String.trim(to_string(message["text"] || message["caption"] || ""))),
-          "payload" => nil,
-          "attachments" => normalize_attachments(message)
-        }
+        input:
+          %{
+            "kind" => "user_message",
+            "channel" => "telegram",
+            "external_id" => to_string(chat_id),
+            "text" =>
+              blank_to_nil(String.trim(to_string(message["text"] || message["caption"] || ""))),
+            "payload" => nil,
+            "attachments" => normalize_attachments(message)
+          }
+          |> put_sender_profile(message["from"])
       }
     end
   end
@@ -28,14 +30,16 @@ defmodule BotMachine.BotRuntime.Channels.Telegram do
     if chat_id do
       %{
         idempotency_key: "telegram:#{update_id}",
-        input: %{
-          "kind" => "user_message",
-          "channel" => "telegram",
-          "external_id" => to_string(chat_id),
-          "text" => callback["data"] || "",
-          "payload" => parse_payload(callback["data"]),
-          "attachments" => []
-        }
+        input:
+          %{
+            "kind" => "user_message",
+            "channel" => "telegram",
+            "external_id" => to_string(chat_id),
+            "text" => callback["data"] || "",
+            "payload" => parse_payload(callback["data"]),
+            "attachments" => []
+          }
+          |> put_sender_profile(callback["from"])
       }
     end
   end
@@ -159,6 +163,26 @@ defmodule BotMachine.BotRuntime.Channels.Telegram do
     end
   end
 
+  defp put_sender_profile(input, %{} = from) do
+    display_name =
+      [from["first_name"], from["last_name"]]
+      |> Enum.reject(&(&1 in [nil, ""]))
+      |> Enum.join(" ")
+      |> blank_to_nil()
+
+    metadata =
+      %{}
+      |> maybe_put("telegram_user_id", from["id"] && to_string(from["id"]))
+      |> maybe_put("username", from["username"])
+      |> maybe_put("language_code", from["language_code"])
+
+    input
+    |> maybe_put("display_name", display_name)
+    |> maybe_put("metadata", metadata)
+  end
+
+  defp put_sender_profile(input, _from), do: input
+
   defp normalize_attachments(%{"photo" => photos}) when is_list(photos) do
     photos
     |> Enum.max_by(&(&1["file_size"] || 0), fn -> nil end)
@@ -217,6 +241,12 @@ defmodule BotMachine.BotRuntime.Channels.Telegram do
   end
 
   defp token(connection), do: (Credentials.for_connection(connection) || %{})["bot_token"]
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, _key, ""), do: map
+  defp maybe_put(map, _key, %{} = value) when map_size(value) == 0, do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
   defp parse_int(value, _default) when is_integer(value), do: value
 
   defp parse_int(value, default) do
